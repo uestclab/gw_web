@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "mq_broker.h": "c",
+        "ipc_server.h": "c",
+        "event_process.h": "c",
+        "pthread.h": "c",
+        "string.h": "c",
+        "signal.h": "c",
+        "web_common.h": "c"
+    }
+}

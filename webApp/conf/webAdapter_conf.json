@@ -1,0 +1,5 @@
+{
+	"unix_domain_socket_path": "eth0",
+	"task_queue_size":  4096,
+	"threads_num":      8
+}
