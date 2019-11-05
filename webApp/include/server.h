@@ -22,16 +22,18 @@ typedef struct g_receive_para{
 
 typedef struct g_server_para{
 	g_msg_queue_para*  g_msg_queue;
-	g_receive_para*    g_receive;
+	g_receive_para     g_receive_var;
 	int                listenfd;
 	int                has_user;
 	para_thread*       para_t;
 	zlog_category_t*   log_handler;
+	// debug test
+	int                send_rssi;
 }g_server_para;
 
 
 int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, zlog_category_t* handler);
-int CreateRecvThread(g_receive_para** g_receive, g_msg_queue_para* g_msg_queue, int sock_cli, zlog_category_t* handler);
+int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int sock_cli, zlog_category_t* handler);
 
 
 #endif//SERVER_H

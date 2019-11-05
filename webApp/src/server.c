@@ -14,6 +14,7 @@
 #include "msg_queue.h"
 #include "cJSON.h"
 #include "web_common.h"
+#include "gw_macros_util.h"
 
 #define BUFFER_SIZE 2560*4
 
@@ -30,11 +31,15 @@ void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_
 void* receive_thread(void* args){
 	g_receive_para* g_receive = (g_receive_para*)args;
 
+	g_server_para* g_server = NULL;	
+	g_server = container_of(g_receive, g_server_para, g_receive_var);
+
 	zlog_info(g_receive->log_handler,"start receive_thread()\n");
     while(1){
     	//receive(g_receive);
 		cJSON* root = cJSON_CreateObject();
-		cJSON_AddNumberToObject(root, "rssi", 11);
+		g_server->send_rssi = g_server->send_rssi + 1;
+		cJSON_AddNumberToObject(root, "rssi", g_server->send_rssi);
 		char* json_buf = cJSON_Print(root);
 		cJSON_Delete(root);
 		int ret = send(g_receive->connfd,json_buf,strlen(json_buf),0);
@@ -103,8 +108,9 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	(*g_server)->para_t       = newThreadPara();
 	(*g_server)->g_msg_queue  = g_msg_queue;
 	(*g_server)->has_user     = 0;
-	(*g_server)->g_receive    = NULL;
+	//(*g_server)->g_receive    = NULL;
 	(*g_server)->log_handler  = handler;
+	(*g_server)->send_rssi    = 0;
 	int ret = pthread_create((*g_server)->para_t->thread_pid, NULL, runServer, (void*)(*g_server));
     if(ret != 0){
         zlog_error(handler,"create CreateServerThread error ! error_code = %d", ret);
@@ -113,15 +119,15 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	return 0;
 }
 
-int CreateRecvThread(g_receive_para** g_receive, g_msg_queue_para* g_msg_queue, int connfd, zlog_category_t* handler){
+int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int connfd, zlog_category_t* handler){
 	zlog_info(handler,"InitReceThread()");
-	*g_receive = (g_receive_para*)malloc(sizeof(struct g_receive_para));
-	(*g_receive)->g_msg_queue     = g_msg_queue;
-	(*g_receive)->para_t          = newThreadPara();
-	(*g_receive)->connfd          = connfd;                     // connfd
-	(*g_receive)->log_handler 	  = handler;
+	//g_receive = (g_receive_para*)malloc(sizeof(struct g_receive_para));
+	g_receive->g_msg_queue     = g_msg_queue;
+	g_receive->para_t          = newThreadPara();
+	g_receive->connfd          = connfd;                     // connfd
+	g_receive->log_handler 	   = handler;
 
-	int ret = pthread_create((*g_receive)->para_t->thread_pid, NULL, receive_thread, (void*)(*g_receive));
+	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){
         zlog_error(handler,"create CreateRecvThread error ! error_code = %d", ret);
 		return -1;

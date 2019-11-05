@@ -41,9 +41,8 @@ void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_cate
 					continue;
 				}
 
-				g_receive_para* g_receive = NULL;
-				int ret = CreateRecvThread(&g_receive, g_server->g_msg_queue, connfd, g_server->log_handler);
-				g_server->g_receive = g_receive;
+				//g_receive_para* g_receive = NULL;
+				int ret = CreateRecvThread(&(g_server->g_receive_var), g_server->g_msg_queue, connfd, g_server->log_handler);
 				g_server->has_user  = 1;
 
 				break;
