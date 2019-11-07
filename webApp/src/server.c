@@ -29,6 +29,9 @@ void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_
 }
 
 void* receive_thread(void* args){
+
+	pthread_detach(pthread_self());
+
 	g_receive_para* g_receive = (g_receive_para*)args;
 
 	g_server_para* g_server = NULL;	
@@ -120,7 +123,7 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 }
 
 int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int connfd, zlog_category_t* handler){
-	zlog_info(handler,"InitReceThread()");
+	zlog_info(handler,"CreateRecvThread()");
 	//g_receive = (g_receive_para*)malloc(sizeof(struct g_receive_para));
 	g_receive->g_msg_queue     = g_msg_queue;
 	g_receive->para_t          = newThreadPara();

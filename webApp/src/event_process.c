@@ -51,6 +51,7 @@ void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_cate
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
 				g_server->has_user = 0;
+				close(g_server->g_receive_var.connfd);
 				break;
 			}
 			default:
