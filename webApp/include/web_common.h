@@ -11,8 +11,13 @@ typedef enum msg_event{
 	MSG_AIR,
 	MSG_MONITOR,
 	MSG_TIMEOUT,
+	/* process new client */
 	MSG_ACCEPT_NEW_USER,
 	MSG_RECEIVE_THREAD_CLOSED,
+	/* reg state request */
+	MSG_INQUIRY_REG_STATE,
+	/* RF state request */
+	MSG_INQUIRY_RF_MF_STATE,
 }msg_event;
 
 // web system state 

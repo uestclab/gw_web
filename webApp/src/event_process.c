@@ -54,6 +54,21 @@ void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_cate
 				close(g_server->g_receive_var.connfd);
 				break;
 			}
+			case MSG_TIMEOUT:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT: msg_number = %d",getData->msg_number);
+				break;
+			}
+			case MSG_INQUIRY_REG_STATE:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
+				break;
+			}
+			case MSG_INQUIRY_RF_MF_STATE:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_MF_STATE: msg_number = %d",getData->msg_number);
+				break;
+			}
 			default:
 				break;
 		}// end switch
