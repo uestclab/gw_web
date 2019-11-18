@@ -9,6 +9,9 @@
 
 #include "msg_queue.h"
 #include "event_process.h"
+#include "mosquitto_broker.h"
+#include "gw_control.h"
+#include "web_common.h"
 
 
 zlog_category_t * serverLog(const char* path){
@@ -38,14 +41,6 @@ void closeServerLog(){
 	zlog_fini();
 }
 
-void c_compiler_builtin_macro(zlog_category_t* zlog_handler)
-{
-	zlog_info(zlog_handler,"gcc compiler ver:%s\n",__VERSION__);
-	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
-	//printf("gcc compiler ver:%s\n",__VERSION__);
-	//printf("this version built time is:[%s  %s]\n",__DATE__,__TIME__);
-}
-
 int main(int argc,char** argv)
 {
 	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
@@ -53,7 +48,7 @@ int main(int argc,char** argv)
 
 	zlog_info(zlog_handler,"start webAdapter process\n");
 
-	c_compiler_builtin_macro(zlog_handler);
+	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
 	
 	/* msg_queue */
 	const char* pro_path = "/tmp/handover_test/";
@@ -65,15 +60,36 @@ int main(int argc,char** argv)
 	}
 	zlog_info(zlog_handler, "g_msg_queue->msgid = %d \n", g_msg_queue->msgid);
 
+	/* reg dev */
+	g_RegDev_para* g_RegDev = NULL;
+	int state = initRegdev(&g_RegDev, zlog_handler);
+	if(state != 0 ){
+		zlog_info(zlog_handler,"initRegdev create failed !");
+		return 0;
+	}
+
 	/* server thread */
 	g_server_para* g_server = NULL;
-	int state = CreateServerThread(&g_server, g_msg_queue, zlog_handler);
+	state = CreateServerThread(&g_server, g_msg_queue, zlog_handler);
 	if(state == -1 || g_server == NULL){
 		zlog_info(zlog_handler,"No server thread created \n");
 		return 0;
 	}
 
-	eventLoop(g_server, g_msg_queue, zlog_handler);
+	/* broker handler */
+	g_broker_para* g_broker = NULL;
+	state = createBroker(argv[0], &g_broker, g_server, g_RegDev, zlog_handler);
+	if(state != 0 || g_server == NULL){
+		zlog_info(zlog_handler,"No Broker created \n");
+		return 0;
+	}
+
+	struct msg_st data;
+	data.msg_type = MSG_INQUIRY_SYSTEM_STATE;
+	data.msg_number = MSG_INQUIRY_SYSTEM_STATE;
+	data.msg_len = 0;
+	postMsgQueue(&data,g_msg_queue);
+	eventLoop(g_server, g_broker, g_msg_queue, zlog_handler);
 
 	closeServerLog();
     return 0;

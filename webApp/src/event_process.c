@@ -18,7 +18,7 @@ void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
-void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_category_t* zlog_handler)
+void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_para* g_msg_queue, zlog_category_t* zlog_handler)
 {
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -54,6 +54,21 @@ void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_cate
 				close(g_server->g_receive_var.connfd);
 				break;
 			}
+			case MSG_INQUIRY_SYSTEM_STATE:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_SYSTEM_STATE: msg_number = %d",getData->msg_number);
+
+				inquiry_system_state(g_broker);
+
+				struct msg_st data;
+				data.msg_type = MSG_INQUIRY_REG_STATE;
+				data.msg_number = MSG_INQUIRY_REG_STATE;
+				data.msg_len = 0;
+				postMsgQueue(&data,g_msg_queue);
+				sleep(1);
+
+				break;
+			}
 			case MSG_TIMEOUT:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT: msg_number = %d",getData->msg_number);
@@ -62,6 +77,26 @@ void eventLoop(g_server_para* g_server, g_msg_queue_para* g_msg_queue, zlog_cate
 			case MSG_INQUIRY_REG_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
+
+				inquiry_reg_state(g_broker);
+
+				struct msg_st data;
+				data.msg_type = MSG_INQUIRY_SYSTEM_STATE;
+				data.msg_number = MSG_INQUIRY_SYSTEM_STATE;
+				data.msg_len = 0;
+				postMsgQueue(&data,g_msg_queue);
+				sleep(1);
+
+				break;
+			}
+			case MSG_INQUIRY_RSSI:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RSSI: msg_number = %d",getData->msg_number);
+				break;
+			}
+			case MSG_CONTROL_RSSI:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
 				break;
 			}
 			case MSG_INQUIRY_RF_MF_STATE:

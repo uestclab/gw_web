@@ -16,7 +16,7 @@
 #include "web_common.h"
 #include "gw_macros_util.h"
 
-#define BUFFER_SIZE 2560*4
+#define BUFFER_SIZE 1024 * 4
 
 void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_queue){
 	struct msg_st data;
@@ -26,6 +26,82 @@ void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_
 	if(buf != NULL && buf_len != 0)
 		memcpy(data.msg_json,buf,buf_len);
 	postMsgQueue(&data,g_msg_queue);
+}
+
+int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
+	int type = myNtohl(buf + 4);
+	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
+	if(type == TYPE_SYSTEM_STATE_REQUEST){
+		postMsg(MSG_INQUIRY_SYSTEM_STATE, jsonfile, length-4, g_receive->g_msg_queue);
+	}else if(type == TYPE_REG_STATE_REQUEST){ // json
+		postMsg(MSG_INQUIRY_REG_STATE, jsonfile, length-4, g_receive->g_msg_queue);
+	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
+		postMsg(MSG_INQUIRY_RSSI, jsonfile, length-4, g_receive->g_msg_queue);
+	}else if(type == TYPE_RSSI_CONTROL){
+		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive->g_msg_queue);
+	}else if(type == 22){ // rf_mf_state
+		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive->g_msg_queue);
+	} 
+	return 0;
+}
+
+void receive(g_receive_para* g_receive){
+    int size = 0;
+    int totalByte = 0;
+    int msg_len = 0;
+    char* temp_receBuffer = g_receive->recvbuf + 2000; //
+    char* pStart = NULL;
+    char* pCopy = NULL;
+
+    size = recv(g_receive->connfd, temp_receBuffer, BUFFER_SIZE,0);
+    if(size<=0){
+		//if(n < 0)
+		//	zlog_info(g_receive->log_handler,"recv() n < 0 , n = %d \n" , n);
+		//if(n == 0)
+		//	zlog_info(g_receive->log_handler,"recv() n = 0\n");
+		return;
+    }
+
+    pStart = temp_receBuffer - g_receive->moreData;
+    totalByte = size + g_receive->moreData;
+    const int MinHeaderLen = sizeof(int32_t);
+    while(1){
+        if(totalByte <= MinHeaderLen)
+        {
+            g_receive->moreData = totalByte;
+            pCopy = pStart;
+            if(g_receive->moreData > 0)
+            {
+                memcpy(temp_receBuffer - g_receive->moreData, pCopy, g_receive->moreData);
+            }
+            break;
+        }
+        if(totalByte > MinHeaderLen)
+        {
+            msg_len= myNtohl(pStart);
+	
+            if(totalByte < msg_len + MinHeaderLen )
+            {
+                g_receive->moreData = totalByte;
+                pCopy = pStart;
+                if(g_receive->moreData > 0){
+                    memcpy(temp_receBuffer - g_receive->moreData, pCopy, g_receive->moreData);
+                }
+                break;
+            } 
+            else// at least one message 
+            {
+				int ret = processMessage(pStart,msg_len,g_receive);
+				// move to next message
+                pStart = pStart + msg_len + MinHeaderLen;
+                totalByte = totalByte - msg_len - MinHeaderLen;
+                if(totalByte == 0){
+                    g_receive->moreData = 0;
+                    break;
+                }
+            }          
+        }
+    }	
 }
 
 void* receive_thread(void* args){
@@ -39,31 +115,25 @@ void* receive_thread(void* args){
 
 	zlog_info(g_receive->log_handler,"start receive_thread()\n");
     while(1){
-    	//receive(g_receive);
-		cJSON* root = cJSON_CreateObject();
-		g_server->send_rssi = g_server->send_rssi + 1;
-		cJSON_AddNumberToObject(root, "rssi", g_server->send_rssi);
-		char* json_buf = cJSON_Print(root);
-		cJSON_Delete(root);
-		int ret = send(g_receive->connfd,json_buf,strlen(json_buf),0);
-		if(ret != strlen(json_buf)){
-			zlog_info(g_receive->log_handler," send error :  ret = %d , expect_len = %d \n", ret, strlen(json_buf));
-		}
-		free(json_buf);
-		break;
-		char recv_buf[1024];
-		ret = recv(g_receive->connfd, recv_buf, 1024,0);
-		if(ret > 0){
-			zlog_info(g_receive->log_handler, "recv_buf : %s " , recv_buf);
-		}
-		zlog_info(g_receive->log_handler," recv thread is running \n");
-		sleep(1);
+    	receive(g_receive);
+		// cJSON* root = cJSON_CreateObject();
+		// g_server->send_rssi = g_server->send_rssi + 1;
+		// cJSON_AddNumberToObject(root, "rssi", g_server->send_rssi);
+		// char* json_buf = cJSON_Print(root);
+		// cJSON_Delete(root);
+		// int ret = send(g_receive->connfd,json_buf,strlen(json_buf),0);
+		// if(ret != strlen(json_buf)){
+		// 	zlog_info(g_receive->log_handler," send error :  ret = %d , expect_len = %d \n", ret, strlen(json_buf));
+		// }
+		// free(json_buf);
+		// break;
     }
 	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
     zlog_info(g_receive->log_handler,"end Exit receive_thread()\n");
 }
 
 void* runServer(void* args){
+	pthread_detach(pthread_self());
 	g_server_para* g_server = (g_server_para*)args;
 
     struct sockaddr_in servaddr; 
@@ -111,8 +181,11 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	(*g_server)->para_t       = newThreadPara();
 	(*g_server)->g_msg_queue  = g_msg_queue;
 	(*g_server)->has_user     = 0;
-	//(*g_server)->g_receive    = NULL;
 	(*g_server)->log_handler  = handler;
+
+	(*g_server)->g_receive_var.recvbuf = (char*)malloc(BUFFER_SIZE);
+	(*g_server)->g_receive_var.sendbuf = (char*)malloc(BUFFER_SIZE);
+
 	(*g_server)->send_rssi    = 0;
 	int ret = pthread_create((*g_server)->para_t->thread_pid, NULL, runServer, (void*)(*g_server));
     if(ret != 0){
@@ -122,13 +195,14 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	return 0;
 }
 
+/*  MSG_ACCEPT_NEW_USER call in event loop */
 int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int connfd, zlog_category_t* handler){
 	zlog_info(handler,"CreateRecvThread()");
-	//g_receive = (g_receive_para*)malloc(sizeof(struct g_receive_para));
 	g_receive->g_msg_queue     = g_msg_queue;
 	g_receive->para_t          = newThreadPara();
 	g_receive->connfd          = connfd;                     // connfd
 	g_receive->log_handler 	   = handler;
+	g_receive->moreData        = 0;
 
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){

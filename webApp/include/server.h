@@ -17,6 +17,9 @@ typedef struct g_receive_para{
 	g_msg_queue_para*  g_msg_queue;
 	para_thread*       para_t;
 	int                connfd;
+	int                moreData;
+	char*              sendbuf;
+	char*              recvbuf;
 	zlog_category_t*   log_handler;
 }g_receive_para;
 
@@ -24,7 +27,7 @@ typedef struct g_server_para{
 	g_msg_queue_para*  g_msg_queue;
 	g_receive_para     g_receive_var;
 	int                listenfd;
-	int                has_user;
+	int                has_user; // only one user in working
 	para_thread*       para_t;
 	zlog_category_t*   log_handler;
 	// debug test

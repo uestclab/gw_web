@@ -22,14 +22,6 @@ if(${PUBLIC} STREQUAL "ON")
 	include_directories("/home/gyl/liqingSpace/code/GW_arm_server/temp/include/")
 	# cross complie
 
-	# sqlite
-	#link_directories("/home/gyl/liqingSpace/sqlite/sqlite-autoconf-3290000/install/lib/")
-	#include_directories("/home/gyl/liqingSpace/sqlite/sqlite-autoconf-3290000/install/include/")
-
-	# cgic
-	#link_directories("/home/gyl/liqingSpace/code/web_dev/code/cgic207/")
-	#include_directories("/home/gyl/liqingSpace/code/web_dev/code/cgic207/")
-
 elseif(${PUBLIC} STREQUAL "OFF")
     message(STATUS "start to build PC platform.")
 	message(STATUS "PROJECT_SOURCE_DIR": ${PROJECT_SOURCE_DIR})
@@ -65,10 +57,6 @@ if(${PUBLIC} STREQUAL "ON") # arm
 	target_link_libraries(${PROJECT_NAME} gw_control)
 	target_link_libraries(${PROJECT_NAME} gw_threadpool)
 	target_link_libraries(${PROJECT_NAME} gw_msgQueue)
-	#sqlite
-	#target_link_libraries(${PROJECT_NAME} -lsqlite3)
-	#cgic
-	#target_link_libraries(${PROJECT_NAME} libcgic.a)
 
 endif(${PUBLIC} STREQUAL "ON")
 
