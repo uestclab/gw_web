@@ -15,18 +15,9 @@
 #include "cJSON.h"
 #include "web_common.h"
 #include "gw_macros_util.h"
+#include "small_utility.h"
 
 #define BUFFER_SIZE 1024 * 4
-
-void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_queue){
-	struct msg_st data;
-	data.msg_type = msg_type;
-	data.msg_number = msg_type;
-	data.msg_len = buf_len;
-	if(buf != NULL && buf_len != 0)
-		memcpy(data.msg_json,buf,buf_len);
-	postMsgQueue(&data,g_msg_queue);
-}
 
 int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 	int type = myNtohl(buf + 4);

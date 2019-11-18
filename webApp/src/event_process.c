@@ -45,6 +45,14 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				int ret = CreateRecvThread(&(g_server->g_receive_var), g_server->g_msg_queue, connfd, g_server->log_handler);
 				g_server->has_user  = 1;
 
+
+				if(g_broker->enableCallback == 0){
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_CLIENT: register callback \n");
+					broker_register_callback_interface(g_broker);
+					//dma_register_callback(g_dma);
+					g_broker->enableCallback = 1;
+				}
+
 				break;
 			}
 			case MSG_RECEIVE_THREAD_CLOSED:
@@ -66,6 +74,14 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				data.msg_len = 0;
 				postMsgQueue(&data,g_msg_queue);
 				sleep(1);
+
+				break;
+			}
+			case MSG_SYSTEM_STATE_EXCEPTION: // clear system state variable
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_SYSTEM_STATE_EXCEPTION: msg_number = %d",getData->msg_number);
+
+				process_exception(getData->msg_json,getData->msg_len,g_broker);
 
 				break;
 			}

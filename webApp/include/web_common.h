@@ -16,6 +16,7 @@ typedef enum msg_event{
 	MSG_RECEIVE_THREAD_CLOSED,
 	/* system state */
 	MSG_INQUIRY_SYSTEM_STATE,
+	MSG_SYSTEM_STATE_EXCEPTION,
 	/* reg state request */
 	MSG_INQUIRY_REG_STATE,
 	/* RSSI control and value */
@@ -38,6 +39,7 @@ typedef enum msg_event{
 typedef enum frame_type{
 	TYPE_SYSTEM_STATE_REQUEST = 1,
 	TYPE_SYSTEM_STATE_RESPONSE,
+	TYPE_SYSTEM_STATE_EXCEPTION,
 	TYPE_REG_STATE_REQUEST = 31,
 	TYPE_REG_STATE_RESPONSE,
 	TYPE_INQUIRY_RSSI_REQUEST = 41,

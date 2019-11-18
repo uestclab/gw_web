@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "zlog.h"
 
+#include "broker.h"
 #include "gw_control.h"
 #include "server.h"
 
@@ -16,7 +17,8 @@ typedef struct json_set_para{
 }json_set_para;
 
 typedef struct g_broker_para{
-    int                system_ready;
+    int                system_ready; // device state
+	int                enableCallback;
 	g_msg_queue_para*  g_msg_queue;
 	g_server_para*     g_server;
     g_RegDev_para*     g_RegDev;
@@ -41,8 +43,8 @@ typedef struct ret_byte{
 
 int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, g_RegDev_para* g_RegDev, zlog_category_t* handler);
 int broker_register_callback_interface(g_broker_para* g_broker);
+void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker);
 void destoryBroker(g_broker_para* g_broker);
-
 
 int inquiry_system_state(g_broker_para* g_broker);
 int inquiry_reg_state(g_broker_para* g_broker);

@@ -3,12 +3,16 @@
 
 
 
-char* system_state_response(int is_ready, char* fpga_version, char* soft_version){
+char* system_state_response(int is_ready, char* fpga_version, char* soft_version, int is_exception){
     char* system_state_response_json = NULL;
     if(is_ready == 1){
         cJSON *root = cJSON_CreateObject();
         cJSON_AddStringToObject(root, "comment", "system is ready");
-        cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_RESPONSE);
+        if(is_exception == 0){
+            cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_RESPONSE);
+        }else{
+            cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_EXCEPTION);
+        }
         cJSON_AddNumberToObject(root, "array_number", 3);
 
         cJSON *array=cJSON_CreateArray();
@@ -38,8 +42,12 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
         cJSON_Delete(root);
     }else{
         cJSON *root = cJSON_CreateObject();
-        cJSON_AddStringToObject(root, "comment", "system is not ready");
-        cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_RESPONSE);
+        cJSON_AddStringToObject(root, "comment", fpga_version);
+        if(is_exception == 0){
+            cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_RESPONSE);
+        }else{
+            cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_EXCEPTION);
+        }
         cJSON_AddNumberToObject(root, "array_number", 1);
 
         cJSON *array=cJSON_CreateArray();

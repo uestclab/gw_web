@@ -11,7 +11,7 @@
 #include "web_common.h"
 
 
-char* system_state_response(int is_ready, char* fpga_version, char* soft_version);
+char* system_state_response(int is_ready, char* fpga_version, char* soft_version, int is_exception);
 
 char* reg_state_response(reg_state_t* reg_state);
 

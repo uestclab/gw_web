@@ -4,7 +4,6 @@
 #include <errno.h>
 
 #include "mosquitto_broker.h"
-#include "broker.h"
 #include "cJSON.h"
 #include "web_common.h"
 #include "response_json.h"
@@ -42,6 +41,7 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 	(*g_broker)->log_handler       = handler;
     (*g_broker)->system_ready      = 0;
     (*g_broker)->g_RegDev          = g_RegDev;
+	(*g_broker)->enableCallback    = 0;
 
     char* rssi_open_path = "../conf/rssi_open.json";
     (*g_broker)->json_set.rssi_open_json = readfile(rssi_open_path);
@@ -61,24 +61,54 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 	return 0;
 }
 
-int process_exception(char* buf, int buf_len, char *from, void* arg)
+int inform_exception(char* buf, int buf_len, char *from, void* arg)
 { 
 	int ret = 0;
 	// if(g_broker_temp->g_server->waiting == STATE_DISCONNECTED)
 	// 	return -1;
 	if(strcmp(from,"mon/all/pub/system_stat") == 0){
-		zlog_info(g_broker_temp->log_handler,"process_exception: mon/all/pub/system_stat , buf = %s \n", buf);
-		//assemble_frame_and_send(g_broker_temp->g_server,buf,buf_len+1,41);
-        // post msg 
+		zlog_info(g_broker_temp->log_handler,"inform_exception: mon/all/pub/system_stat , buf = %s \n", buf);
+        postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, strlen(buf)+1, g_broker_temp->g_msg_queue);	
 	}else if(strcmp(from,"rf/all/pub/rssi") == 0){ 
 		//print_rssi_struct(g_broker_temp,buf,buf_len); // send rssi struct stream to pc	
 	}
-
 	return ret;
 }
 
+void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker){
+	cJSON * root = NULL;
+    cJSON * item = NULL;
+    root = cJSON_Parse(stat_buf);
+    item = cJSON_GetObjectItem(root,"stat");
+	if(strcmp(item->valuestring,"0x20") == 0 || strcmp(item->valuestring,"0x80000020") == 0){
+		if(g_broker->system_ready == 0){
+			g_broker->system_ready = 1;
+            char* soft_version = c_compiler_builtin_macro();
+            uint32_t value = get_fpga_version(g_broker->g_RegDev);
+            char* fpga_version = parse_fpga_version(value);
+			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,1);
+			assemble_frame_and_send(g_broker->g_server,system_state_response_json,strlen(system_state_response_json)+1,MSG_SYSTEM_STATE_EXCEPTION);
+            free(system_state_response_json);
+		}else{
+            ;
+        }			
+	}else{
+		g_broker->system_ready = 0;
+		char tmp_str[256];
+		sprintf(tmp_str, "device is not ready , SystemState not 0x20 !!! %s \n", item->valuestring);
+		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
+		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1);
+		assemble_frame_and_send(g_broker->g_server,response_json,strlen(response_json)+1,MSG_SYSTEM_STATE_EXCEPTION);
+
+		/* clear and reset system state variable */
+
+		free(response_json);	
+	}
+	cJSON_Delete(root);
+}
+
 int broker_register_callback_interface(g_broker_para* g_broker){
-	int ret = register_callback("all", process_exception, "#");
+	int ret = register_callback("all", inform_exception, "#");
 	if(ret != 0){
 		zlog_error(g_broker->log_handler,"register_callback error in initBroker\n");
 		return -1;
@@ -103,10 +133,8 @@ void parse_system_state(char* stat_buf, int stat_buf_len, g_broker_para* g_broke
             char* soft_version = c_compiler_builtin_macro();
             uint32_t value = get_fpga_version(g_broker->g_RegDev);
             char* fpga_version = parse_fpga_version(value);
-            char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version);
-            /* ---------------------------------- */
-
-            assemble_frame_and_send(g_broker->g_server,system_state_response_json,strlen(system_state_response_json)+1,TYPE_SYSTEM_STATE_RESPONSE);
+			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,0);
+			assemble_frame_and_send(g_broker->g_server,system_state_response_json,strlen(system_state_response_json)+1,TYPE_SYSTEM_STATE_RESPONSE);
             free(soft_version);
             free(fpga_version);
             free(system_state_response_json);
@@ -118,8 +146,9 @@ void parse_system_state(char* stat_buf, int stat_buf_len, g_broker_para* g_broke
 		char tmp_str[256];
 		sprintf(tmp_str, "device is not ready , SystemState not 0x20 !!! %s \n", item->valuestring);
 		zlog_info(g_broker->log_handler,"other msg : %s ", tmp_str);
-		//sendLogToDisplay(tmp_str, strlen(tmp_str), panelHandle);
-        // send msg to node js		
+		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 0);
+		assemble_frame_and_send(g_broker->g_server,response_json,strlen(response_json)+1,TYPE_SYSTEM_STATE_RESPONSE);
+		free(response_json);	
 	}
 	cJSON_Delete(root);
     free(stat_buf);
