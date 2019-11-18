@@ -53,6 +53,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 					g_broker->enableCallback = 1;
 				}
 
+				/* open rssi */
+				control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
+
 				break;
 			}
 			case MSG_RECEIVE_THREAD_CLOSED:

@@ -128,3 +128,24 @@ char* reg_state_response(reg_state_t* reg_state){
     cJSON_Delete(root);
     return reg_state_response_json;
 }
+
+char* rssi_data_response(double rssi_data){
+    char* rssi_data_response_json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "rssi_data_response");
+    cJSON_AddNumberToObject(root, "type", TYPE_RSSI_DATA_RESPONSE);
+    cJSON_AddNumberToObject(root, "array_number", 1);
+
+    cJSON *array=cJSON_CreateArray();
+
+    cJSON *obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rssi");
+    cJSON_AddStringToObject(obj_1, "data_type","double");
+    cJSON_AddNumberToObject(obj_1, "value",rssi_data);
+    cJSON_AddItemToArray(array,obj_1);    
+
+    cJSON_AddItemToObject(root,"ret_value",array);
+    rssi_data_response_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return rssi_data_response_json;
+}

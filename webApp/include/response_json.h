@@ -15,5 +15,7 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
 
 char* reg_state_response(reg_state_t* reg_state);
 
+char* rssi_data_response(double rssi_data);
+
 
 #endif /* RESPONSE_JSON_H */

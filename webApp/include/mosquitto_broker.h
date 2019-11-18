@@ -50,7 +50,7 @@ int inquiry_system_state(g_broker_para* g_broker);
 int inquiry_reg_state(g_broker_para* g_broker);
 int inquiry_dac_state();
 
-
+void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len);
 int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker); // control by external
 void close_rssi(g_broker_para* g_broker); // control by internal
 

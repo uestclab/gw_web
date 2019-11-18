@@ -59,10 +59,11 @@ int main(int argc,char** argv)
 		return 0;
 	}
 	zlog_info(zlog_handler, "g_msg_queue->msgid = %d \n", g_msg_queue->msgid);
+	int state = clearMsgQueue(g_msg_queue);
 
 	/* reg dev */
 	g_RegDev_para* g_RegDev = NULL;
-	int state = initRegdev(&g_RegDev, zlog_handler);
+	state = initRegdev(&g_RegDev, zlog_handler);
 	if(state != 0 ){
 		zlog_info(zlog_handler,"initRegdev create failed !");
 		return 0;
@@ -84,11 +85,24 @@ int main(int argc,char** argv)
 		return 0;
 	}
 
+/* ------------------------------ test code -----------------------------------  */
+	if(g_broker->enableCallback == 0){
+		zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_CLIENT: register callback \n");
+		broker_register_callback_interface(g_broker);
+		//dma_register_callback(g_dma);
+		g_broker->enableCallback = 1;
+	}
+
+	zlog_info(zlog_handler,"test point 1");
+	/* open rssi */
+	control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
 	struct msg_st data;
 	data.msg_type = MSG_INQUIRY_SYSTEM_STATE;
 	data.msg_number = MSG_INQUIRY_SYSTEM_STATE;
 	data.msg_len = 0;
 	postMsgQueue(&data,g_msg_queue);
+/* ------------------------------ test code -----------------------------------  */
+
 	eventLoop(g_server, g_broker, g_msg_queue, zlog_handler);
 
 	closeServerLog();

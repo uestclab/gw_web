@@ -1,0 +1,28 @@
+# CMakeLists for webapp lib
+project(webAdapter)
+
+SET(CMAKE_SYSTEM_NAME Linux)
+SET(CMAKE_SYSTEM_PROCESSOR arm) 
+SET(TOOLCHAIN_DIR "/home/gyl/petalinux/tools/linux-i386/gcc-arm-linux-gnueabi")
+SET(CMAKE_FIND_ROOT_PATH ${TOOLCHAIN_DIR})
+SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+SET(CMAKE_C_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-gcc-6.2.1)
+SET(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-g++)
+
+SET(LIB_NAME webapp)
+SET(ALL_LIBRARY_SRCS adlist.c)
+
+add_library(${LIB_NAME} SHARED ${ALL_LIBRARY_SRCS})
+
+SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib/)
+
+
+
+
+
+
+
+

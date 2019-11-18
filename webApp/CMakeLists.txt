@@ -3,6 +3,13 @@ option(PUBLIC "This is a default option for PUBLIC" ON)
 message(STATUS "build public platform switch:"${PUBLIC})
 project(webAdapter)
 
+include_directories("/home/gyl/liqingSpace/code/GW_handover/handover_Server/dependence/include/")
+include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/lib")
+include_directories("${PROJECT_SOURCE_DIR}/utility_lib")
+link_directories("${PROJECT_SOURCE_DIR}/utility_lib/lib/")
+ADD_SUBDIRECTORY(utility_lib)
+
 if(${PUBLIC} STREQUAL "ON")
 	message(STATUS "start to build ARM platform.")
 	# cross complie
@@ -34,19 +41,17 @@ SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 
 
 SET(CMAKE_VERBOSE_MAKEFILE ON)    
-SET(ROOT_PATH ".")  
+SET(ROOT_PATH ".")
 
 file(GLOB_RECURSE SOURCE_FILES "src/*.c")
 file(GLOB_RECURSE ALL_EXECUTABLES "webAdapter.c")
 
 add_executable(${PROJECT_NAME} ${ALL_EXECUTABLES} ${SOURCE_FILES})
 
-include_directories("/home/gyl/liqingSpace/code/GW_handover/handover_Server/dependence/include/")
-include_directories("${PROJECT_SOURCE_DIR}/include")
-
 target_link_libraries(${PROJECT_NAME} -pthread)
 target_link_libraries(${PROJECT_NAME} -lzlog)
 target_link_libraries(${PROJECT_NAME} -lm)
+target_link_libraries(${PROJECT_NAME} webapp)
 if(${PUBLIC} STREQUAL "ON") # arm
 	target_link_libraries(${PROJECT_NAME} cjson)
 	target_link_libraries(${PROJECT_NAME} broker)

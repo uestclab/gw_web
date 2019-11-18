@@ -64,13 +64,11 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 int inform_exception(char* buf, int buf_len, char *from, void* arg)
 { 
 	int ret = 0;
-	// if(g_broker_temp->g_server->waiting == STATE_DISCONNECTED)
-	// 	return -1;
 	if(strcmp(from,"mon/all/pub/system_stat") == 0){
 		zlog_info(g_broker_temp->log_handler,"inform_exception: mon/all/pub/system_stat , buf = %s \n", buf);
-        postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, strlen(buf)+1, g_broker_temp->g_msg_queue);	
+        postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, buf_len, g_broker_temp->g_msg_queue);	
 	}else if(strcmp(from,"rf/all/pub/rssi") == 0){ 
-		//print_rssi_struct(g_broker_temp,buf,buf_len); // send rssi struct stream to pc	
+		print_rssi_struct(g_broker_temp,buf,buf_len); // send rssi struct stream to pc	
 	}
 	return ret;
 }
@@ -245,6 +243,7 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 		free(stat_buf);
 	}
 	cJSON_Delete(root);
+	return ret;
 }
 
 void close_rssi(g_broker_para* g_broker){
@@ -276,4 +275,22 @@ void close_rssi(g_broker_para* g_broker){
 	free(close_rssi_jsonfile);
 }
 
+void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len){
+	struct rssi_priv* tmp_buf = (struct rssi_priv*)buf;
+	//printf("timestamp tv_sec = %d , tv_usec = %d \n",tmp_buf->timestamp.tv_sec,tmp_buf->timestamp.tv_usec);
+	//printf("rssi_buf_len = %d \n",tmp_buf->rssi_buf_len);
+	// memcpy(shareInfo->buf_ + sizeof(int32_t) * 5, tmp_buf->rssi_buf, tmp_buf->rssi_buf_len);
 
+	char tmp_c = *(tmp_buf->rssi_buf);
+	int tmp = (int)tmp_c;
+	tmp = tmp * 4;
+	if(tmp < 0){
+		tmp = tmp + 1024;
+	}
+	double rssi_data = (tmp * 5.0) / 1024;
+	rssi_data = (rssi_data - 0.05) / 0.05 - 69.0;
+
+	char* rssi_data_response_json = rssi_data_response(rssi_data);
+	assemble_frame_and_send(g_broker->g_server,rssi_data_response_json,strlen(rssi_data_response_json)+1,TYPE_RSSI_DATA_RESPONSE);
+	free(rssi_data_response_json);
+}
