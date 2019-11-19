@@ -16,8 +16,10 @@
 typedef struct g_receive_para{
 	g_msg_queue_para*  g_msg_queue;
 	para_thread*       para_t;
+	int                working;
 	int                connfd;
 	int                moreData;
+	pthread_mutex_t    send_mutex;
 	char*              sendbuf;
 	char*              recvbuf;
 	zlog_category_t*   log_handler;
@@ -37,6 +39,8 @@ typedef struct g_server_para{
 
 int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, zlog_category_t* handler);
 int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int sock_cli, zlog_category_t* handler);
+
+int assemble_frame_and_send(g_server_para* g_server, char* buf, int buf_len, int type);
 
 
 #endif//SERVER_H

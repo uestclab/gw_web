@@ -46,10 +46,16 @@ void receive(g_receive_para* g_receive){
 
     size = recv(g_receive->connfd, temp_receBuffer, BUFFER_SIZE,0);
     if(size<=0){
-		//if(n < 0)
-		//	zlog_info(g_receive->log_handler,"recv() n < 0 , n = %d \n" , n);
-		//if(n == 0)
-		//	zlog_info(g_receive->log_handler,"recv() n = 0\n");
+		if(size < 0)
+			zlog_info(g_receive->log_handler,"recv() size < 0 , size = %d \n" , size);
+		if(size == 0)
+			zlog_info(g_receive->log_handler,"recv() size = 0\n");
+        zlog_info(g_receive->log_handler,"errno = %d ", errno);
+        if(errno != EINTR){
+            zlog_info(g_receive->log_handler," need post msg to inform ");
+            g_receive->working = 0;
+        } 
+
 		return;
     }
 
@@ -105,19 +111,8 @@ void* receive_thread(void* args){
 	g_server = container_of(g_receive, g_server_para, g_receive_var);
 
 	zlog_info(g_receive->log_handler,"start receive_thread()\n");
-    while(1){
+    while(g_receive->working == 1){
     	receive(g_receive);
-		// cJSON* root = cJSON_CreateObject();
-		// g_server->send_rssi = g_server->send_rssi + 1;
-		// cJSON_AddNumberToObject(root, "rssi", g_server->send_rssi);
-		// char* json_buf = cJSON_Print(root);
-		// cJSON_Delete(root);
-		// int ret = send(g_receive->connfd,json_buf,strlen(json_buf),0);
-		// if(ret != strlen(json_buf)){
-		// 	zlog_info(g_receive->log_handler," send error :  ret = %d , expect_len = %d \n", ret, strlen(json_buf));
-		// }
-		// free(json_buf);
-		// break;
     }
 	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
     zlog_info(g_receive->log_handler,"end Exit receive_thread()\n");
@@ -194,6 +189,8 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 	g_receive->connfd          = connfd;                     // connfd
 	g_receive->log_handler 	   = handler;
 	g_receive->moreData        = 0;
+    pthread_mutex_init(&(g_receive->send_mutex),NULL); // pthread_mutex_destroy(&(g_receive->send_mutex));
+    g_receive->working         = 1;
 
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){
@@ -203,13 +200,23 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 	return 0;
 }
 
-
-
-
-
-
-
-
+/* ------------------------- send interface-------------------------------- */
+int assemble_frame_and_send(g_server_para* g_server, char* buf, int buf_len, int type){
+    g_receive_para* g_receive = &(g_server->g_receive_var);
+    zlog_info(g_receive->log_handler," buf : %s",buf);
+    int length = buf_len + FRAME_HEAD_ROOM;
+    pthread_mutex_lock(&(g_receive->send_mutex));
+    char* temp_buf = g_receive->sendbuf;
+    *((int32_t*)temp_buf) = htonl(buf_len + sizeof(int32_t));
+    *((int32_t*)(temp_buf + sizeof(int32_t))) = htonl(type);
+    memcpy(temp_buf + FRAME_HEAD_ROOM,buf,buf_len);
+    int ret = send(g_receive->connfd, temp_buf, length, type);
+    if(ret != length){
+        zlog_info(g_receive->log_handler,"ret = %d" , ret);
+    }
+    pthread_mutex_unlock(&(g_receive->send_mutex));
+    return ret;
+}
 
 
 

@@ -11,6 +11,7 @@
 #include "event_process.h"
 #include "mosquitto_broker.h"
 #include "gw_control.h"
+#include "ThreadPool.h"
 #include "web_common.h"
 
 
@@ -85,25 +86,11 @@ int main(int argc,char** argv)
 		return 0;
 	}
 
-/* ------------------------------ test code -----------------------------------  */
-	if(g_broker->enableCallback == 0){
-		zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_CLIENT: register callback \n");
-		broker_register_callback_interface(g_broker);
-		//dma_register_callback(g_dma);
-		g_broker->enableCallback = 1;
-	}
+	/* ThreadPool handler */
+	ThreadPool* g_threadpool = NULL;
+	createThreadPool(128, 4, &g_threadpool,zlog_handler);
 
-	zlog_info(zlog_handler,"test point 1");
-	/* open rssi */
-	control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
-	struct msg_st data;
-	data.msg_type = MSG_INQUIRY_SYSTEM_STATE;
-	data.msg_number = MSG_INQUIRY_SYSTEM_STATE;
-	data.msg_len = 0;
-	postMsgQueue(&data,g_msg_queue);
-/* ------------------------------ test code -----------------------------------  */
-
-	eventLoop(g_server, g_broker, g_msg_queue, zlog_handler);
+	eventLoop(g_server, g_broker, g_msg_queue, g_threadpool, zlog_handler);
 
 	closeServerLog();
     return 0;

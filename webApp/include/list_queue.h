@@ -10,6 +10,10 @@
 #include "zlog.h"
 #include "adlist.h"
 
+typedef int (*list_cb)(char* buf, int buf_len, void* from, int type);
+
+typedef int (*accept_cb)(int connfd, void* from, void* out);
+
 
 typedef struct g_list_queue{
 	list*  			   g_list;

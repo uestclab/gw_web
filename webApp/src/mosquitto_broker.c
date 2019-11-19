@@ -11,18 +11,6 @@
 
 g_broker_para* g_broker_temp = NULL;
 
-void assemble_frame_and_send(g_server_para* g_server, char* stat_buf, int stat_buf_len, int type){
-	zlog_info(g_server->log_handler," stat_buf : %s",stat_buf);
-	int length = stat_buf_len + FRAME_HEAD_ROOM;
-	char* temp_buf = malloc(length);
-	// htonl ?
-	*((int32_t*)temp_buf) = (stat_buf_len + sizeof(int32_t));
-	*((int32_t*)(temp_buf+ sizeof(int32_t))) = (type);
-	memcpy(temp_buf + FRAME_HEAD_ROOM,stat_buf,stat_buf_len);
-	//int ret = sendToPc(g_server, temp_buf, length, type);
-	free(temp_buf);
-}
-
 void inquiry_system_json(g_broker_para* g_broker){
     cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "stat", "0");
