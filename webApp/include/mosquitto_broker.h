@@ -9,6 +9,7 @@
 #include "broker.h"
 #include "gw_control.h"
 #include "server.h"
+#include "tiny_queue.h"
 
 typedef struct json_set_para{
     char*              system_state_json;
@@ -22,6 +23,7 @@ typedef struct g_broker_para{
 	g_msg_queue_para*  g_msg_queue;
 	g_server_para*     g_server;
     g_RegDev_para*     g_RegDev;
+	tiny_queue_t*      rssi_queue;
 	int                rssi_state;
     json_set_para      json_set;
 	zlog_category_t*   log_handler;

@@ -11,6 +11,26 @@
 
 g_broker_para* g_broker_temp = NULL;
 
+void* rssi_write_thread(void* args){
+
+	pthread_detach(pthread_self());
+
+	g_broker_para* g_broker = (g_broker_para*)args;
+
+	zlog_info(g_broker->log_handler,"start rssi_write_thread()\n");
+
+	while(1){
+		char *work = tiny_queue_pop(g_broker->rssi_queue); // need work length
+		int32_t timestamp_tv_sec = *((int32_t*)work);
+		int32_t timestamp_tv_usec = *((int32_t*)(work+ sizeof(int32_t) ));
+		int32_t rssi_buf_len = *((int32_t*)(work+ sizeof(int32_t) * 2));
+		printf("timestamp : sec = %d , usec = %d , rssi_len = %d \n", timestamp_tv_sec, timestamp_tv_usec, rssi_buf_len);
+	}
+
+    zlog_info(g_broker->log_handler,"end Exit rssi_write_thread()\n");
+}
+
+
 void inquiry_system_json(g_broker_para* g_broker){
     cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "stat", "0");
@@ -30,6 +50,15 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
     (*g_broker)->system_ready      = 0;
     (*g_broker)->g_RegDev          = g_RegDev;
 	(*g_broker)->enableCallback    = 0;
+
+	(*g_broker)->rssi_queue        = tiny_queue_create();
+	if ((*g_broker)->rssi_queue == NULL) {
+		zlog_error(handler,"Cannot creare the rssi queue\n");
+		return -1;
+	}
+
+	pthread_t thread_pid;
+	pthread_create(&thread_pid, NULL, rssi_write_thread, (void*)(*g_broker));
 
     char* rssi_open_path = "../conf/rssi_open.json";
     (*g_broker)->json_set.rssi_open_json = readfile(rssi_open_path);
@@ -265,10 +294,6 @@ void close_rssi(g_broker_para* g_broker){
 
 void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len){
 	struct rssi_priv* tmp_buf = (struct rssi_priv*)buf;
-	//printf("timestamp tv_sec = %d , tv_usec = %d \n",tmp_buf->timestamp.tv_sec,tmp_buf->timestamp.tv_usec);
-	//printf("rssi_buf_len = %d \n",tmp_buf->rssi_buf_len);
-	// memcpy(shareInfo->buf_ + sizeof(int32_t) * 5, tmp_buf->rssi_buf, tmp_buf->rssi_buf_len);
-
 	char tmp_c = *(tmp_buf->rssi_buf);
 	int tmp = (int)tmp_c;
 	tmp = tmp * 4;
@@ -281,4 +306,18 @@ void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len){
 	char* rssi_data_response_json = rssi_data_response(rssi_data);
 	assemble_frame_and_send(g_broker->g_server,rssi_data_response_json,strlen(rssi_data_response_json)+1,TYPE_RSSI_DATA_RESPONSE);
 	free(rssi_data_response_json);
+
+	/* for write file */
+	int msg_len = 4 + 4 + 4 + tmp_buf->rssi_buf_len;
+	char* rssi_file = malloc(msg_len);
+	*((int32_t*)rssi_file) = tmp_buf->timestamp.tv_sec;
+	*((int32_t*)(rssi_file+ sizeof(int32_t) )) = tmp_buf->timestamp.tv_usec;
+	*((int32_t*)(rssi_file+ sizeof(int32_t) * 2)) = tmp_buf->rssi_buf_len;
+	memcpy(rssi_file + sizeof(int32_t) * 3, tmp_buf->rssi_buf, tmp_buf->rssi_buf_len);	
+
+	if (tiny_queue_push(g_broker->rssi_queue, rssi_file) != 0) {
+        zlog_error(g_broker->log_handler,"Cannot push an element in the queue\n");
+		free(rssi_file);
+    }
+
 }

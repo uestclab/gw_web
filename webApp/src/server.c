@@ -189,7 +189,7 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 	g_receive->connfd          = connfd;                     // connfd
 	g_receive->log_handler 	   = handler;
 	g_receive->moreData        = 0;
-    pthread_mutex_init(&(g_receive->send_mutex),NULL); // pthread_mutex_destroy(&(g_receive->send_mutex));
+    pthread_mutex_init(&(g_receive->send_mutex),NULL);
     g_receive->working         = 1;
 
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));

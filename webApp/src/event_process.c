@@ -16,7 +16,6 @@ void postTmpWorkToThreadPool(g_server_para* g_server, ThreadPool* g_threadpool){
 	AddWorker(inquiry_reg_state_loop,(void*)g_server,g_threadpool);
 }
 
-
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
 
