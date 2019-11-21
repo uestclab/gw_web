@@ -13,7 +13,7 @@ SET(CMAKE_C_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-gcc-6.2.1)
 SET(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-g++)
 
 SET(LIB_NAME webapp)
-SET(ALL_LIBRARY_SRCS tiny_queue.c)
+SET(ALL_LIBRARY_SRCS tiny_queue.c md5sum.c)
 
 add_library(${LIB_NAME} SHARED ${ALL_LIBRARY_SRCS})
 

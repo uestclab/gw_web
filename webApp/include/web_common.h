@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <assert.h>
 
 typedef enum msg_event{
 	/* test msg type */
@@ -11,6 +12,7 @@ typedef enum msg_event{
 	MSG_AIR,
 	MSG_MONITOR,
 	MSG_TIMEOUT,
+	MSG_CONF_CHANGE,
 	/* process new client */
 	MSG_ACCEPT_NEW_USER,
 	MSG_RECEIVE_THREAD_CLOSED,

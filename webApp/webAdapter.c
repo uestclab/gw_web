@@ -42,8 +42,15 @@ void closeServerLog(){
 	zlog_fini();
 }
 
+void check_assert(){
+	assert(sizeof (uint32_t) == 4);
+}
+
 int main(int argc,char** argv)
 {
+
+	check_assert();
+
 	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
 	//zlog_category_t *zlog_handler = serverLog("./zlog_default.conf");
 

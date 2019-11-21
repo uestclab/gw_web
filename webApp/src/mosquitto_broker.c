@@ -212,6 +212,7 @@ int inquiry_reg_state(g_broker_para* g_broker){
 
 int inquiry_dac_state(){
 	int value = gpio_read(973);
+	printf("dac state : %d \n",value);
 	return value;
 }
 

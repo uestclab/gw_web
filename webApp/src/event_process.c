@@ -5,6 +5,7 @@
 
 /* test */
 #include "response_json.h"
+#include "md5sum.h"
 
 void* inquiry_reg_state_loop(void* args){
 	g_server_para* g_server = (g_server_para*)args;
@@ -26,10 +27,46 @@ void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
+void* monitor_conf_thread(void* args){
+
+	pthread_detach(pthread_self());
+
+	g_broker_para* g_broker = (g_broker_para*)args;
+	char* conf_path = "../conf/test_conf.json";
+	char* p_conf_file = readfile(conf_path);
+	if(p_conf_file == NULL){
+		zlog_error(g_broker->log_handler,"open file %s error.\n",conf_path);
+		return NULL;
+	}
+	zlog_info(g_broker->log_handler, "conf : %s \n", p_conf_file);
+	int state = 0;
+
+	unsigned char old_sum[16];
+	state = get_md5sum(old_sum, conf_path);
+
+	while(1){
+		sleep(5);
+		unsigned char sum[16];
+		state = get_md5sum(sum, conf_path);
+		int ret = memcmp(old_sum,sum,16);
+		if(ret != 0){
+			postMsg(MSG_CONF_CHANGE,conf_path,strlen(conf_path)+1,g_broker->g_msg_queue);
+			memcpy(old_sum,sum,16);
+		}
+	}
+}
+
+void create_monitor_configue_change(g_broker_para* g_broker){
+	pthread_t thread_pid;
+	pthread_create(&thread_pid, NULL, monitor_conf_thread, (void*)(g_broker));
+}
+
+
 /* -------------------------- main process msg loop --------------------------------------------- */
 
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
+	create_monitor_configue_change(g_broker);
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
 		if(getData == NULL)
@@ -78,6 +115,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
 				g_server->has_user = 0;
 				close(g_server->g_receive_var.connfd);
+				destoryThreadPara(g_server->g_receive_var.para_t);
 
 				char* msg_json = test_json(0);
 				process_rssi_save_file(msg_json,strlen(msg_json)+1,g_broker);
@@ -141,6 +179,19 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			case MSG_INQUIRY_RF_MF_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_MF_STATE: msg_number = %d",getData->msg_number);
+				break;
+			}
+			case MSG_CONF_CHANGE:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONF_CHANGE: msg_number = %d",getData->msg_number);
+
+				char* p_conf_file = readfile(getData->msg_json);
+				if(p_conf_file == NULL){
+					zlog_error(g_broker->log_handler,"open file %s error.\n",getData->msg_json);
+					break;
+				}
+				zlog_info(g_broker->log_handler, "new conf : %s \n", p_conf_file);
+
 				break;
 			}
 			default:
