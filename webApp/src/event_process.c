@@ -1,6 +1,10 @@
-#include "event_process.h"
 #include "cJSON.h"
+#include "event_process.h"
 #include "web_common.h"
+#include "small_utility.h"
+
+/* test */
+#include "response_json.h"
 
 void* inquiry_reg_state_loop(void* args){
 	g_server_para* g_server = (g_server_para*)args;
@@ -62,16 +66,22 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				/* open rssi */
 				control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
 
+				char* msg_json = test_json(1);
+				postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, g_server->g_msg_queue);
+				free(msg_json);
+
 				break;
 			}
+			/* reset all */
 			case MSG_RECEIVE_THREAD_CLOSED:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
 				g_server->has_user = 0;
 				close(g_server->g_receive_var.connfd);
 
-				/* close rssi if need */
-				control_rssi_state(g_broker->json_set.rssi_close_json,strlen(g_broker->json_set.rssi_close_json), g_broker);
+				char* msg_json = test_json(0);
+				process_rssi_save_file(msg_json,strlen(msg_json)+1,g_broker);
+				free(msg_json);
 
 				break;
 			}
@@ -115,6 +125,17 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			case MSG_CONTROL_RSSI:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
+
+				process_rssi_save_file(getData->msg_json,getData->msg_len,g_broker);
+
+				break;
+			}
+			case MSG_CLEAR_RSSI_WRITE_STATUS:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_RSSI_WRITE_STATUS: msg_number = %d",getData->msg_number);
+				clear_rssi_write_status(g_broker);
+				/* close rssi if need */
+				control_rssi_state(g_broker->json_set.rssi_close_json,strlen(g_broker->json_set.rssi_close_json), g_broker);
 				break;
 			}
 			case MSG_INQUIRY_RF_MF_STATE:

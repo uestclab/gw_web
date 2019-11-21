@@ -10,6 +10,7 @@ void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_
 	data.msg_len = buf_len;
 	if(buf != NULL && buf_len != 0)
 		memcpy(data.msg_json,buf,buf_len);
+
 	postMsgQueue(&data,g_msg_queue);
 }
 

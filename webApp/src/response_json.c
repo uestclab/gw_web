@@ -149,3 +149,19 @@ char* rssi_data_response(double rssi_data){
     cJSON_Delete(root);
     return rssi_data_response_json;
 }
+
+/* test */
+char* test_json(int op_cmd){
+    char* test_json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "test_json");
+    cJSON_AddNumberToObject(root, "type", TYPE_RSSI_CONTROL);
+    cJSON_AddStringToObject(root, "dst","rssi");
+    cJSON_AddNumberToObject(root, "op_cmd",op_cmd);
+
+	cJSON_AddStringToObject(root, "file_name","rssi.dat");
+
+    test_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return test_json;
+}

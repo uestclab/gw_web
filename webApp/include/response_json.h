@@ -17,5 +17,7 @@ char* reg_state_response(reg_state_t* reg_state);
 
 char* rssi_data_response(double rssi_data);
 
+/* test */
+char* test_json(int op_cmd);
 
 #endif /* RESPONSE_JSON_H */

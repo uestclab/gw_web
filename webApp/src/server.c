@@ -28,7 +28,7 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 		postMsg(MSG_INQUIRY_REG_STATE, jsonfile, length-4, g_receive->g_msg_queue);
 	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
 		postMsg(MSG_INQUIRY_RSSI, jsonfile, length-4, g_receive->g_msg_queue);
-	}else if(type == TYPE_RSSI_CONTROL){
+	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
 		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive->g_msg_queue);
 	}else if(type == 22){ // rf_mf_state
 		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive->g_msg_queue);
@@ -51,6 +51,7 @@ void receive(g_receive_para* g_receive){
 		if(size == 0)
 			zlog_info(g_receive->log_handler,"recv() size = 0\n");
         zlog_info(g_receive->log_handler,"errno = %d ", errno);
+        /* check disconnection */
         if(errno != EINTR){
             zlog_info(g_receive->log_handler," need post msg to inform ");
             g_receive->working = 0;
@@ -111,7 +112,7 @@ void* receive_thread(void* args){
 	g_server = container_of(g_receive, g_server_para, g_receive_var);
 
 	zlog_info(g_receive->log_handler,"start receive_thread()\n");
-    while(g_receive->working == 1){
+    while(g_receive->working == 1){ /* if disconnected , exit receive thread */
     	receive(g_receive);
     }
 	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
@@ -203,7 +204,7 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 /* ------------------------- send interface-------------------------------- */
 int assemble_frame_and_send(g_server_para* g_server, char* buf, int buf_len, int type){
     g_receive_para* g_receive = &(g_server->g_receive_var);
-    zlog_info(g_receive->log_handler," buf : %s",buf);
+    //zlog_info(g_receive->log_handler," buf : %s",buf);
     int length = buf_len + FRAME_HEAD_ROOM;
     pthread_mutex_lock(&(g_receive->send_mutex));
     char* temp_buf = g_receive->sendbuf;
