@@ -23,6 +23,7 @@ typedef enum msg_event{
 	MSG_INQUIRY_REG_STATE,
 	/* RSSI control and value */
 	MSG_INQUIRY_RSSI,
+	MSG_RSSI_READY_AND_SEND,
 	MSG_CONTROL_RSSI,
 	MSG_CLEAR_RSSI_WRITE_STATUS,
 	/* RF state request */

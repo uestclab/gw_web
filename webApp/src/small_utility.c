@@ -3,10 +3,13 @@
 #include <math.h>
 #include "cJSON.h"
 
-void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_queue){
+void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, g_msg_queue_para* g_msg_queue){
 	struct msg_st data;
 	data.msg_type = msg_type;
 	data.msg_number = msg_type;
+
+	data.tmp_data = tmp_data;
+
 	data.msg_len = buf_len;
 	if(buf != NULL && buf_len != 0)
 		memcpy(data.msg_json,buf,buf_len);

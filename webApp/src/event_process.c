@@ -8,25 +8,27 @@
 #include "md5sum.h"
 
 void* inquiry_reg_state_loop(void* args){
-	g_server_para* g_server = (g_server_para*)args;
+	g_receive_para* tmp_receive = (g_receive_para*)args;
 	sleep(1);
 	struct msg_st data;
 	data.msg_type = MSG_INQUIRY_REG_STATE;
 	data.msg_number = MSG_INQUIRY_REG_STATE;
+	data.tmp_data = tmp_receive;
 	data.msg_len = 0;
-	postMsgQueue(&data,g_server->g_msg_queue);
+	postMsgQueue(&data,tmp_receive->g_msg_queue);
 }
 
-void postTmpWorkToThreadPool(g_server_para* g_server, ThreadPool* g_threadpool){
-	AddWorker(inquiry_reg_state_loop,(void*)g_server,g_threadpool);
+void postTmpWorkToThreadPool(g_receive_para* tmp_receive, ThreadPool* g_threadpool){
+	AddWorker(inquiry_reg_state_loop,(void*)tmp_receive,g_threadpool);
 }
 
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
-
+	zlog_info(g_server->log_handler,"user_session_cnt = %d " , g_server->user_session_cnt);
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
+/* ------------------ test dynamic change conf ------------------------- */
 void* monitor_conf_thread(void* args){
 
 	pthread_detach(pthread_self());
@@ -50,7 +52,7 @@ void* monitor_conf_thread(void* args){
 		state = get_md5sum(sum, conf_path);
 		int ret = memcmp(old_sum,sum,16);
 		if(ret != 0){
-			postMsg(MSG_CONF_CHANGE,conf_path,strlen(conf_path)+1,g_broker->g_msg_queue);
+			postMsg(MSG_CONF_CHANGE,conf_path,strlen(conf_path)+1,NULL,g_broker->g_msg_queue);
 			memcpy(old_sum,sum,16);
 		}
 	}
@@ -60,7 +62,7 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 	pthread_t thread_pid;
 	pthread_create(&thread_pid, NULL, monitor_conf_thread, (void*)(g_broker));
 }
-
+/* ------------------ test dynamic change conf ------------------------- */
 
 /* -------------------------- main process msg loop --------------------------------------------- */
 
@@ -77,49 +79,35 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: msg_number = %d",getData->msg_number);
 
-				int connfd = -1;
-				if(getData->msg_len > 0){
-					memcpy((char*)(&connfd),getData->msg_json,getData->msg_len);
-				}
+				int connfd = *((int*)(getData->tmp_data));
+				free(getData->tmp_data);
 
-				if(g_server->has_user == 1){
-					zlog_info(g_server->log_handler,"already in use web service \n");
-					close(connfd);
-					continue;
-				}
-
-				//g_receive_para* g_receive = NULL;
-				int ret = CreateRecvThread(&(g_server->g_receive_var), g_server->g_msg_queue, connfd, g_server->log_handler);
-				g_server->has_user  = 1;
+				user_session_node* new_user = new_user_node(g_server);
+	
+				int ret = CreateRecvThread(new_user->g_receive, g_server->g_msg_queue, connfd, g_server->log_handler);
 
 
 				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_CLIENT: register callback \n");
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register callback \n");
 					broker_register_callback_interface(g_broker);
 					//dma_register_callback(g_dma);
 					g_broker->enableCallback = 1;
 				}
 
-				/* open rssi */
-				control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
-
-				char* msg_json = test_json(1);
-				postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, g_server->g_msg_queue);
-				free(msg_json);
+				display(g_server);
 
 				break;
 			}
-			/* reset all */
+			/* clear one user all status */
 			case MSG_RECEIVE_THREAD_CLOSED:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
-				g_server->has_user = 0;
-				close(g_server->g_receive_var.connfd);
-				destoryThreadPara(g_server->g_receive_var.para_t);
 
-				char* msg_json = test_json(0);
-				process_rssi_save_file(msg_json,strlen(msg_json)+1,g_broker);
-				free(msg_json);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				del_user(tmp_receive->connfd, g_server, g_broker, g_threadpool);
+
+				display(g_server);
 
 				break;
 			}
@@ -127,7 +115,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_SYSTEM_STATE: msg_number = %d",getData->msg_number);
 
-				inquiry_system_state(g_broker);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				inquiry_system_state(tmp_receive,g_broker);
 				break;
 			}
 			case MSG_SYSTEM_STATE_EXCEPTION: // clear system state variable
@@ -146,34 +136,61 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			case MSG_INQUIRY_REG_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
+				
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
-				inquiry_reg_state(g_broker);
-/* ------------------------------ test code -----------------------------------  */
-				if(g_server->has_user != 0){
-					postTmpWorkToThreadPool(g_server, g_threadpool);
-				}
-/* ------------------------------ test code -----------------------------------  */
+				/* check tmp_receive in user_node list ? */
+
+				inquiry_reg_state(tmp_receive, g_broker);
 				break;
 			}
-			case MSG_INQUIRY_RSSI:
+			case MSG_INQUIRY_RSSI: // open rssi
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RSSI: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				/* record open rssi */
+				record_rssi_enable(tmp_receive->connfd, g_server);
+				/* open rssi */
+				open_rssi_state_external(tmp_receive->connfd, g_broker);
+/* ------------------------------ test code -----------------------------------  */
+				// enable save rssi
+				char* msg_json = test_json(1);
+				postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, tmp_receive, g_server->g_msg_queue);
+				free(msg_json);
+/* ------------------------------ test code -----------------------------------  */
 				break;
 			}
-			case MSG_CONTROL_RSSI:
+			case MSG_RSSI_READY_AND_SEND:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
+
+				/* send rssi to node.js for display */
+				send_rssi_in_event_loop(getData->msg_json, getData->msg_len, g_broker);
+
+				/* check and save rssi to file */
+				send_rssi_to_save(getData->msg_json, getData->msg_len, g_broker);
+
+				break;
+			}
+			case MSG_CONTROL_RSSI: // rssi save enable or not
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
-				process_rssi_save_file(getData->msg_json,getData->msg_len,g_broker);
+				/* record rssi save cmd*/
+				record_rssi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
+				process_rssi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len,g_broker);
 
 				break;
 			}
 			case MSG_CLEAR_RSSI_WRITE_STATUS:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_RSSI_WRITE_STATUS: msg_number = %d",getData->msg_number);
-				clear_rssi_write_status(g_broker);
-				/* close rssi if need */
-				control_rssi_state(g_broker->json_set.rssi_close_json,strlen(g_broker->json_set.rssi_close_json), g_broker);
+
+				rssi_user_node* tmp_node = (rssi_user_node*)getData->tmp_data;
+
+				clear_rssi_write_status(tmp_node,g_broker);
+
 				break;
 			}
 			case MSG_INQUIRY_RF_MF_STATE:
@@ -201,8 +218,67 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 	}// end while(1)
 }
 
+void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, ThreadPool* g_threadpool){
+	user_session_node* tmp_node = del_user_node_in_list(connfd, g_server);
+	if(tmp_node == NULL){
+		return;
+	}
 
+	// process action
+	if(tmp_node->record_action->enable_rssi_save){
+		// disable save rssi
+		inform_stop_rssi_write_thread(connfd, g_broker);
+	}
+	if(tmp_node->record_action->enable_rssi){
+		/* close rssi if need */
+		close_rssi_state_external(connfd, g_broker);
+	}
 
+	// free node
+	release_receive_resource(tmp_node->g_receive);
+	free(tmp_node->record_action);
+	free(tmp_node);
+}
 
+void record_rssi_enable(int connfd, g_server_para* g_server){
+    struct user_session_node *pnode = NULL;
+    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+        if(pnode->g_receive->connfd == connfd){    
+            pnode->record_action->enable_rssi = 1;
+			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
+            break;
+        }
+    }
+}
 
+int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_server_para* g_server){
 
+	cJSON * root = NULL;
+    cJSON * item = NULL;
+    root = cJSON_Parse(stat_buf);
+    item = cJSON_GetObjectItem(root,"type");
+	if(item->valueint != TYPE_RSSI_CONTROL){
+		cJSON_Delete(root);
+		return -1;
+	}
+
+	int rssi_save = -1;
+	item = cJSON_GetObjectItem(root,"op_cmd");
+	if(item->valueint == 0){ /* stop save */
+		rssi_save = 0;
+	}else if(item->valueint == 1){ /* start save */
+		rssi_save = 1;
+	}
+
+    struct user_session_node *pnode = NULL;
+    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+        if(pnode->g_receive->connfd == connfd){    
+            pnode->record_action->enable_rssi_save = rssi_save;
+			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
+            break;
+        }
+    }
+
+	cJSON_Delete(root);
+	return 0;
+}

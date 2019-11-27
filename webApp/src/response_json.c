@@ -42,7 +42,7 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
         cJSON_Delete(root);
     }else{
         cJSON *root = cJSON_CreateObject();
-        cJSON_AddStringToObject(root, "comment", fpga_version);
+        cJSON_AddStringToObject(root, "comment", "system is not ready");
         if(is_exception == 0){
             cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_RESPONSE);
         }else{
