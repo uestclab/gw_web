@@ -228,6 +228,54 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	unsigned int mcs_pos = 1015808;
 	reg_state->tx_modulation = (value & mcs_pos) >> 15;
 	reg_state->reg_state_num++;
+	/* pac_txc_re_trans_cnt */
+	reg_state->txc_retrans_cnt = get_pac_txc_re_trans_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* pac_txc_expect_seq_id */
+	value = get_pac_txc_expect_seq_id(g_broker->g_RegDev);
+	reg_state->expect_seq_id_high16 = value >> 16;
+	reg_state->reg_state_num++;
+	reg_state->expect_seq_id_low16 = (value << 16) >> 16;
+	reg_state->reg_state_num++;
+	/* rxc_miscs */
+	value = get_rxc_miscs(g_broker->g_RegDev);
+	reg_state->rx_id = (value << 16) >> 16;
+	reg_state->reg_state_num++;
+	reg_state->rx_fifo_data = (value << 10) >> 26;
+	reg_state->reg_state_num++;
+	/* rx_sync */
+	reg_state->rx_sync = get_rx_sync(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* ctrl_frame_crc_correct_cnt */
+	reg_state->ctrl_crc_c = get_ctrl_frame_crc_correct_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* ctrl_frame_crc_error_cnt */
+	reg_state->ctrl_crc_e = get_ctrl_frame_crc_error_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* manage_frame_crc_correct_cnt */
+	reg_state->manage_crc_c = get_manage_frame_crc_correct_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* manage_frame_crc_error_cnt */
+	reg_state->manage_crc_e = get_manage_frame_crc_error_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* bb_send_cnt */
+	reg_state->bb_send_cnt = get_bb_send_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
+	/* rx_vector */
+	value = get_rx_vector(g_broker->g_RegDev);
+	reg_state->rx_v_agg_num = (value << 5) >> 28;
+	reg_state->reg_state_num++;
+	reg_state->rx_v_len     = (value << 14) >> 14;
+	reg_state->reg_state_num++;
+	/* pac_soft_rst */
+	value = get_pac_soft_rst(g_broker->g_RegDev);
+	reg_state->tx_abort = (value << 24) >> 31;
+	reg_state->reg_state_num++;
+	reg_state->ddr_closed = (value << 29) >> 31;
+	reg_state->reg_state_num++;
+	/* sw_fifo_data_cnt */
+	reg_state->sw_fifo_cnt = get_sw_fifo_data_cnt(g_broker->g_RegDev);
+	reg_state->reg_state_num++;
 	/* dac state */
 	reg_state->dac_state = inquiry_dac_state();
 	reg_state->reg_state_num++;
@@ -443,7 +491,7 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 
 		item = cJSON_GetObjectItem(root,"file_name");
 
-		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/handover_test/web/log/%d-%s", connfd,item->valuestring);
+		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%d-%s", connfd,item->valuestring);
 		printf("file_name : %s\n",tmp_node->rssi_file_t->file_name);
 		tmp_node->rssi_file_t->file = fopen(tmp_node->rssi_file_t->file_name,"wb");
 		if(tmp_node->rssi_file_t->file == NULL){

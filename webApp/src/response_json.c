@@ -122,6 +122,103 @@ char* reg_state_response(reg_state_t* reg_state){
     cJSON_AddStringToObject(obj_8, "data_type","double");
     cJSON_AddNumberToObject(obj_8, "value",reg_state->distance);
     cJSON_AddItemToArray(array,obj_8);
+/* --------------------------------------------------------------------------- */
+    cJSON *obj_9=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_9, "name","txc_retrans_cnt");
+    cJSON_AddStringToObject(obj_9, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_9, "value",reg_state->txc_retrans_cnt);
+    cJSON_AddItemToArray(array,obj_9);
+
+    cJSON *obj_10=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_10, "name","expect_seq_id_low16");
+    cJSON_AddStringToObject(obj_10, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_10, "value",reg_state->expect_seq_id_low16);
+    cJSON_AddItemToArray(array,obj_10);
+
+    cJSON *obj_11=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_11, "name","expect_seq_id_high16");
+    cJSON_AddStringToObject(obj_11, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_11, "value",reg_state->expect_seq_id_high16);
+    cJSON_AddItemToArray(array,obj_11);
+
+    cJSON *obj_12=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_12, "name","rx_id");
+    cJSON_AddStringToObject(obj_12, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_12, "value",reg_state->rx_id);
+    cJSON_AddItemToArray(array,obj_12);
+
+    cJSON *obj_13=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_13, "name","rx_fifo_data");
+    cJSON_AddStringToObject(obj_13, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_13, "value",reg_state->rx_fifo_data);
+    cJSON_AddItemToArray(array,obj_13);
+
+    cJSON *obj_14=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_14, "name","rx_sync");
+    cJSON_AddStringToObject(obj_14, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_14, "value",reg_state->rx_sync);
+    cJSON_AddItemToArray(array,obj_14);
+
+    cJSON *obj_15=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_15, "name","rx_v_agg_num");
+    cJSON_AddStringToObject(obj_15, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_15, "value",reg_state->rx_v_agg_num);
+    cJSON_AddItemToArray(array,obj_15);
+
+    cJSON *obj_16=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_16, "name","rx_v_len");
+    cJSON_AddStringToObject(obj_16, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_16, "value",reg_state->rx_v_len);
+    cJSON_AddItemToArray(array,obj_16);
+
+    cJSON *obj_17=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_17, "name","tx_abort");
+    cJSON_AddStringToObject(obj_17, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_17, "value",reg_state->tx_abort);
+    cJSON_AddItemToArray(array,obj_17);
+
+    cJSON *obj_18=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_18, "name","ddr_closed");
+    cJSON_AddStringToObject(obj_18, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_18, "value",reg_state->ddr_closed);
+    cJSON_AddItemToArray(array,obj_18);
+
+    cJSON *obj_19=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_19, "name","sw_fifo_cnt");
+    cJSON_AddStringToObject(obj_19, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_19, "value",reg_state->sw_fifo_cnt);
+    cJSON_AddItemToArray(array,obj_19);
+
+    cJSON *obj_20=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_20, "name","bb_send_cnt");
+    cJSON_AddStringToObject(obj_20, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_20, "value",reg_state->bb_send_cnt);
+    cJSON_AddItemToArray(array,obj_20);
+
+    cJSON *obj_21=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_21, "name","ctrl_crc_c");
+    cJSON_AddStringToObject(obj_21, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_21, "value",reg_state->ctrl_crc_c);
+    cJSON_AddItemToArray(array,obj_21);
+
+    cJSON *obj_22=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_22, "name","ctrl_crc_e");
+    cJSON_AddStringToObject(obj_22, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_22, "value",reg_state->ctrl_crc_e);
+    cJSON_AddItemToArray(array,obj_22);
+
+    cJSON *obj_23=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_23, "name","manage_crc_c");
+    cJSON_AddStringToObject(obj_23, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_23, "value",reg_state->manage_crc_c);
+    cJSON_AddItemToArray(array,obj_23);
+
+    cJSON *obj_24=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_24, "name","manage_crc_e");
+    cJSON_AddStringToObject(obj_24, "data_type","unsigned int");
+    cJSON_AddNumberToObject(obj_24, "value",reg_state->manage_crc_e);
+    cJSON_AddItemToArray(array,obj_24);
+
 
     cJSON_AddItemToObject(root,"ret_value",array);
     reg_state_response_json = cJSON_Print(root);

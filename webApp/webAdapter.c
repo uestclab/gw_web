@@ -44,6 +44,7 @@ void closeServerLog(){
 
 void check_assert(){
 	assert(sizeof (uint32_t) == 4);
+	printf("uint32_t : %d , uint64_t : %d \n", sizeof(uint32_t),sizeof(u_int64_t));
 }
 
 int main(int argc,char** argv)

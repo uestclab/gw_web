@@ -154,9 +154,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				open_rssi_state_external(tmp_receive->connfd, g_broker);
 /* ------------------------------ test code -----------------------------------  */
 				// enable save rssi
-				char* msg_json = test_json(1);
-				postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, tmp_receive, g_server->g_msg_queue);
-				free(msg_json);
+				// char* msg_json = test_json(1);
+				// postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, tmp_receive, g_server->g_msg_queue);
+				// free(msg_json);
 /* ------------------------------ test code -----------------------------------  */
 				break;
 			}
