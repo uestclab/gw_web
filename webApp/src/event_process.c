@@ -135,7 +135,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			}
 			case MSG_INQUIRY_REG_STATE:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
 				
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
@@ -162,7 +162,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 			}
 			case MSG_RSSI_READY_AND_SEND:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
 
 				/* send rssi to node.js for display */
 				send_rssi_in_event_loop(getData->msg_json, getData->msg_len, g_broker);
@@ -183,7 +183,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 
 				break;
 			}
-			case MSG_CLEAR_RSSI_WRITE_STATUS:
+			case MSG_CLEAR_RSSI_WRITE_STATUS: // case 2 : if not close save rssi manually, this event must be behind MSG_RECEIVE_THREAD_CLOSED
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_RSSI_WRITE_STATUS: msg_number = %d",getData->msg_number);
 
@@ -226,7 +226,7 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, Thre
 
 	// process action
 	if(tmp_node->record_action->enable_rssi_save){
-		// disable save rssi
+		/* disable save rssi */
 		inform_stop_rssi_write_thread(connfd, g_broker);
 	}
 	if(tmp_node->record_action->enable_rssi){

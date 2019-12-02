@@ -298,7 +298,7 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 
 int inquiry_dac_state(){
 	int value = gpio_read(973);
-	printf("dac state : %d \n",value);
+	//printf("dac state : %d \n",value);
 	return value;
 }
 
@@ -367,6 +367,7 @@ int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 	return 0;
 }
 
+/* call only by close webpage */
 int close_rssi_state_external(int connfd, g_broker_para* g_broker){
     struct list_head *pos, *n;
     struct rssi_user_node *pnode = NULL;
@@ -382,11 +383,13 @@ int close_rssi_state_external(int connfd, g_broker_para* g_broker){
 
 	if(pnode != NULL){
 		// free pnode
-		if(pnode->confirm_delete == 0){
+		assert(pnode->confirm_delete == 0);
+		if(pnode->rssi_file_t == NULL){
+			zlog_info(g_broker->log_handler," close_rssi_state_external : delete from list , rssi_file = NULL , so free this node 0x%x \n", pnode);
+			free(pnode);
+		}else{
 			zlog_error(g_broker->log_handler," close_rssi_state_external : delete from list , not free this node 0x%x \n", pnode);
 			pnode->confirm_delete = 1;
-		}else if(pnode->confirm_delete == 1){
-			free(pnode);
 		}		
 	}
 
@@ -491,18 +494,18 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 
 		item = cJSON_GetObjectItem(root,"file_name");
 
-		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%d-%s", connfd,item->valuestring);
+		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%d-%s.dat", connfd,item->valuestring);
 		printf("file_name : %s\n",tmp_node->rssi_file_t->file_name);
 		tmp_node->rssi_file_t->file = fopen(tmp_node->rssi_file_t->file_name,"wb");
 		if(tmp_node->rssi_file_t->file == NULL){
-			zlog_error(g_broker->log_handler,"Cannot creare the rssi queue\n");
+			zlog_error(g_broker->log_handler,"Cannot create the rssi queue\n");
 			cJSON_Delete(root);
 			return -1;
 		}
 
 		tmp_node->rssi_file_t->queue  = tiny_queue_create();
 		if (tmp_node->rssi_file_t->queue == NULL) {
-			zlog_error(g_broker->log_handler,"Cannot creare the rssi queue\n");
+			zlog_error(g_broker->log_handler,"Cannot create the rssi queue\n");
 			cJSON_Delete(root);
 			return -1;
 		}
@@ -570,8 +573,7 @@ void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker)
 		zlog_error(g_broker->log_handler," clear_rssi_write_status :  confirm free this node 0x%x \n", user_node);
 		free(user_node);
 	}else if(user_node->confirm_delete == 0){
-		zlog_error(g_broker->log_handler," clear_rssi_write_status :  not this node 0x%x \n", user_node);
-		user_node->confirm_delete = 1;	
+		zlog_info(g_broker->log_handler," clear_rssi_write_status :  only clear rssi write component in this node 0x%x \n", user_node);
 	}
 }
 
