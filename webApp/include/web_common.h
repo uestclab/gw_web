@@ -28,15 +28,15 @@ typedef enum msg_event{
 	MSG_CLEAR_RSSI_WRITE_STATUS,
 	/* RF state request */
 	MSG_INQUIRY_RF_MF_STATE,
+	/* csi and constellation */
+	MSG_START_CSI,
+	MSG_STOP_CSI,
+	MSG_CSI_READY,
+	MSG_START_CONSTELLATION,
+	MSG_STOP_CONSTELLATION,
+	MSG_CONSTELLATION_READY,
+	MSG_CONTROL_SAVE_IQ_DATA,
 }msg_event;
-
-// web system state 
-
-// #define STATE_STARTUP           0
-// #define STATE_WAIT_MONITOR      1
-// #define STATE_INIT_SELECTED     2
-// #define STATE_WORKING           3
-// #define STATE_TARGET_SELECTED   4
 
 #define FRAME_HEAD_ROOM 8
 

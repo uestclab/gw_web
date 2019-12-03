@@ -10,6 +10,7 @@
 #include "msg_queue.h"
 #include "event_process.h"
 #include "mosquitto_broker.h"
+#include "dma_handler.h"
 #include "gw_control.h"
 #include "ThreadPool.h"
 #include "web_common.h"
@@ -94,11 +95,19 @@ int main(int argc,char** argv)
 		return 0;
 	}
 
+	/* dma handler */
+	g_dma_para* g_dma = NULL;
+	state = create_dma_handler(&g_dma, g_server, zlog_handler);
+	if(state != 0){
+		zlog_info(zlog_handler,"No dma handler created !\n");
+		return 0;
+	}
+
 	/* ThreadPool handler */
 	ThreadPool* g_threadpool = NULL;
 	createThreadPool(128, 4, &g_threadpool,zlog_handler);
 
-	eventLoop(g_server, g_broker, g_msg_queue, g_threadpool, zlog_handler);
+	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, zlog_handler);
 
 	closeServerLog();
     return 0;

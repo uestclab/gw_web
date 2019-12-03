@@ -248,7 +248,10 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
     *((int32_t*)(temp_buf + sizeof(int32_t))) = htonl(type);
     memcpy(temp_buf + FRAME_HEAD_ROOM,buf,buf_len);
     int ret = send(g_receive->connfd, temp_buf, length, type);
-    //zlog_info(g_receive->log_handler,"length = %d , type = %d \n", length, type);
+    if(type == TYPE_SYSTEM_STATE_EXCEPTION){
+        zlog_info(g_receive->log_handler, "length = %d , type = %d \n", length, type);
+        zlog_info(g_receive->log_handler, "send json : %s \n", buf);
+    }
     if(ret != length){
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
     }

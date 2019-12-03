@@ -7,7 +7,6 @@
 #include "zlog.h"
 #include "list.h"
 
-#include "broker.h"
 #include "gw_control.h"
 #include "server.h"
 #include "tiny_queue.h"
@@ -92,6 +91,10 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker); // cont
 int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broker_para* g_broker);
 void send_rssi_to_save(char* buf, int buf_len, g_broker_para* g_broker);
 void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker);
-void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker); 
+void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker);
+
+
+/* test */
+void test_process_exception(int state, g_broker_para* g_broker);
  
 #endif//MOSQUITTO_BROKER_H

@@ -41,6 +41,7 @@ void* monitor_conf_thread(void* args){
 		return NULL;
 	}
 	zlog_info(g_broker->log_handler, "conf : %s \n", p_conf_file);
+	free(p_conf_file);
 	int state = 0;
 
 	unsigned char old_sum[16];
@@ -62,11 +63,10 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 	pthread_t thread_pid;
 	pthread_create(&thread_pid, NULL, monitor_conf_thread, (void*)(g_broker));
 }
-/* ------------------ test dynamic change conf ------------------------- */
 
 /* -------------------------- main process msg loop --------------------------------------------- */
 
-void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
+void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
 	create_monitor_configue_change(g_broker);
 	while(1){
@@ -88,10 +88,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 
 
 				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register callback \n");
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register broker callback \n");
 					broker_register_callback_interface(g_broker);
-					//dma_register_callback(g_dma);
 					g_broker->enableCallback = 1;
+				}
+
+				if(g_dma->enableCallback == 0){
+					zlog_info(zlog_handler, "---------------- EVENT : MSG_ACCEPT_NEW_USER: register dma callback \n");
+					dma_register_callback(g_dma);
+					g_dma->enableCallback = 1;
 				}
 
 				display(g_server);
@@ -152,12 +157,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				record_rssi_enable(tmp_receive->connfd, g_server);
 				/* open rssi */
 				open_rssi_state_external(tmp_receive->connfd, g_broker);
-/* ------------------------------ test code -----------------------------------  */
-				// enable save rssi
-				// char* msg_json = test_json(1);
-				// postMsg(MSG_CONTROL_RSSI, msg_json, strlen(msg_json)+ 1, tmp_receive, g_server->g_msg_queue);
-				// free(msg_json);
-/* ------------------------------ test code -----------------------------------  */
+
 				break;
 			}
 			case MSG_RSSI_READY_AND_SEND:
@@ -209,6 +209,75 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 				}
 				zlog_info(g_broker->log_handler, "new conf : %s \n", p_conf_file);
 
+				cJSON * root = NULL;
+    			cJSON * item = NULL;
+    			root = cJSON_Parse(p_conf_file);
+    			item = cJSON_GetObjectItem(root,"id");
+				int state_id = item->valueint;
+
+				if(state_id == 11){
+					postMsg(MSG_START_CSI,NULL,0,NULL,g_broker->g_msg_queue);
+				}else if(state_id == 22){
+					postMsg(MSG_STOP_CSI,NULL,0,NULL,g_broker->g_msg_queue);
+				}else if(state_id == 33){
+					postMsg(MSG_START_CONSTELLATION,NULL,0,NULL,g_broker->g_msg_queue);
+				}else if(state_id == 44){
+					postMsg(MSG_STOP_CONSTELLATION,NULL,0,NULL,g_broker->g_msg_queue);
+				}
+
+				//test_process_exception(state_cnt, g_broker);
+				cJSON_Delete(root);
+				free(p_conf_file);
+
+				break;
+			}
+			case MSG_START_CSI:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CSI: msg_number = %d",getData->msg_number);
+
+				start_csi(g_dma);
+
+				break;
+			}
+			case MSG_STOP_CSI:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CSI: msg_number = %d",getData->msg_number);
+				
+				stop_csi(g_dma);
+
+				break;
+			}
+			case MSG_CSI_READY:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
+
+				break;
+			}
+			case MSG_START_CONSTELLATION:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CONSTELLATION: msg_number = %d",getData->msg_number);
+				
+				start_constellation(g_dma);
+
+				break;
+			}
+			case MSG_STOP_CONSTELLATION:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CONSTELLATION: msg_number = %d",getData->msg_number);
+				
+				stop_constellation(g_dma);
+
+				break;
+			}
+			case MSG_CONSTELLATION_READY:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
+
+				break;
+			}
+			case MSG_CONTROL_SAVE_IQ_DATA:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_SAVE_IQ_DATA: msg_number = %d",getData->msg_number);
 				break;
 			}
 			default:
@@ -217,6 +286,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_par
 		free(getData);
 	}// end while(1)
 }
+
+
+
+/* -------------------- event process function --------------------------- */
 
 void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, ThreadPool* g_threadpool){
 	user_session_node* tmp_node = del_user_node_in_list(connfd, g_server);

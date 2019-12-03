@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "broker.h"
 #include "mosquitto_broker.h"
 #include "cJSON.h"
 #include "web_common.h"
@@ -411,7 +412,6 @@ void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker){
 	}
 	double rssi_data = (tmp * 5.0) / 1024;
 	rssi_data = (rssi_data - 0.05) / 0.05 - 69.0;
-	//rssi_data = -56;
 
 	char* rssi_data_response_json = rssi_data_response(rssi_data);
 
@@ -592,4 +592,49 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 		zlog_error(g_broker->log_handler,"Cannot push an 0 length element in the queue\n");
 	}
 	pnode->rssi_file_t->enable = 0;
+}
+
+
+
+/* -----------------------   test   --------------------------------------------- */
+
+void test_process_exception(int state, g_broker_para* g_broker){
+
+	if(state == 1){
+		if(g_broker->system_ready == 0){
+			g_broker->system_ready = 1;
+            char* soft_version = c_compiler_builtin_macro();
+            uint32_t value = get_fpga_version(g_broker->g_RegDev);
+            char* fpga_version = parse_fpga_version(value);
+			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,1);
+
+			struct user_session_node *pnode = NULL;
+			list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
+				if(pnode->g_receive != NULL){    
+					assemble_frame_and_send(pnode->g_receive,system_state_response_json,strlen(system_state_response_json),TYPE_SYSTEM_STATE_EXCEPTION);
+				}
+			}
+
+            free(system_state_response_json);
+		}else{
+            ; // do not inform node.js
+        }			
+	}else{
+		g_broker->system_ready = 0;
+		char tmp_str[256];
+		sprintf(tmp_str, "device is not ready !");
+		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
+		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1);
+
+		struct user_session_node *pnode = NULL;
+		list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
+			if(pnode->g_receive != NULL){    
+				assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);
+			}
+		}
+		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));
+		free(response_json);
+		/* clear and reset system state variable */
+	
+	}
 }

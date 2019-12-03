@@ -55,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} webapp)
 if(${PUBLIC} STREQUAL "ON") # arm
 	target_link_libraries(${PROJECT_NAME} cjson)
 	target_link_libraries(${PROJECT_NAME} broker)
+	target_link_libraries(${PROJECT_NAME} cst)
 	target_link_libraries(${PROJECT_NAME} mosquitto)
 	target_link_libraries(${PROJECT_NAME} gw_regdev)
 	target_link_libraries(${PROJECT_NAME} gw_utility)

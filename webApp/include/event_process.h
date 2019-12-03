@@ -13,10 +13,11 @@
 #include "ThreadPool.h"
 #include "server.h"
 #include "mosquitto_broker.h"
+#include "dma_handler.h"
 
 
 
-void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler); 
+void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler); 
 
 void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, ThreadPool* g_threadpool);
 void record_rssi_enable(int connfd, g_server_para* g_server);
