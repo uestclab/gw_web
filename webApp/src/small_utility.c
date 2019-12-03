@@ -163,7 +163,104 @@ double calculateFreq(uint32_t number){ // 0x04FF04FF , 0x04FF0400 , 0x04000400
 	return result;
 }
 
+/* fft ------------ CSI */
+void swap(char*a){
+	char temp;
+	temp = a[0];
+	a[0] = a[1];
+	a[1] = temp;
+}
 
+float tranform(char *input,int length){
+	float value_d = 0;
+	unsigned short temp = 0;
+	
+	char a[2];
+	memcpy(a,input,2);
+	swap(a);
+	temp = *((unsigned short*)a);
+	
+	int value_i = temp;
+	if(value_i > 32767)
+		value_i = value_i - 65536;
+	value_d =  (value_i / 1.0) / 32768;
+	return value_d;
+}
+
+// length must be 1024 -- 2 byte each I or Q data
+void parse_IQ_from_net(char* buf, int len, fftwf_complex *in_IQ){
+	char input_c[2];
+	int counter = 0;
+	int stream_counter = 0;
+	double IQ_stream[256*2];
+	int i;
+	for(i=0;i<len;i++){
+		input_c[counter] = *(buf + i);
+		counter = counter + 1;
+		if(counter == 2){
+			float temp_d = tranform(input_c,2);
+			IQ_stream[stream_counter] = temp_d;
+			stream_counter = stream_counter + 1;
+			counter = 0;
+		}
+	}
+	stream_counter = 0;
+	for(i=0;i<512;i = i + 16){
+		// real
+		in_IQ[stream_counter][0]   = IQ_stream[i];
+		in_IQ[stream_counter+1][0] = IQ_stream[i+1];
+		in_IQ[stream_counter+2][0] = IQ_stream[i+2];
+		in_IQ[stream_counter+3][0] = IQ_stream[i+3];
+		in_IQ[stream_counter+4][0] = IQ_stream[i+4];
+		in_IQ[stream_counter+5][0] = IQ_stream[i+5];
+		in_IQ[stream_counter+6][0] = IQ_stream[i+6];
+		in_IQ[stream_counter+7][0] = IQ_stream[i+7];
+		// imaginary
+		in_IQ[stream_counter][1]   = IQ_stream[i+8];
+		in_IQ[stream_counter+1][1] = IQ_stream[i+9];
+		in_IQ[stream_counter+2][1] = IQ_stream[i+10];
+		in_IQ[stream_counter+3][1] = IQ_stream[i+11];
+		in_IQ[stream_counter+4][1] = IQ_stream[i+12];
+		in_IQ[stream_counter+5][1] = IQ_stream[i+13];
+		in_IQ[stream_counter+6][1] = IQ_stream[i+14];
+		in_IQ[stream_counter+7][1] = IQ_stream[i+15];
+		stream_counter = stream_counter + 8;
+	}
+}
+
+// len = 256
+void calculate_spectrum(fftwf_complex *in_IQ , fftwf_complex *out_fft, fftwf_plan *p, float* spectrum, int len){
+	// fft
+	*p = fftwf_plan_dft_1d(len, in_IQ, out_fft, FFTW_FORWARD, FFTW_ESTIMATE);
+	fftwf_execute(*p);
+
+	for (int i = 0; i < len; i++){
+		spectrum[i] = (out_fft[i][0]*out_fft[i][0] + out_fft[i][1]*out_fft[i][1]) / (256*256);
+	}
+}
+
+// len = 256
+int myfftshift(float* db_array, float* spectrum, int len){
+	int i;
+	for(i=0;i<len;i++){
+		if(spectrum[i] < 1e-100){
+			return -1;
+		}
+		spectrum[i] = 10.0 * log10(spectrum[i]);
+	}
+	memcpy(db_array,spectrum+128,sizeof(float)*128);
+	memcpy(db_array+128,spectrum,sizeof(float)*128);
+	return 0;
+}
+
+// len = 256
+void timeDomainChange(fftwf_complex *in_IQ,float* time_IQ, int len){
+	int i;
+	for(i=0;i<len;i++){
+		time_IQ[i] = sqrt(in_IQ[i][0] * in_IQ[i][0] + in_IQ[i][1] * in_IQ[i][1]);
+		time_IQ[i] = exp(time_IQ[i]);
+	}
+}
 
 
 

@@ -251,6 +251,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
 
+				if(getData->msg_len != 1024){
+					zlog_info(zlog_handler," getData->msg_len != 1024 : %d ",getData->msg_len);
+					break;
+				}
+
+				zlog_info(zlog_handler," start processCSI() .... \n ");
+				processCSI(getData->msg_json, 1024, g_dma);
+				zlog_info(zlog_handler," completed processCSI() .... \n");
+
 				break;
 			}
 			case MSG_START_CONSTELLATION:

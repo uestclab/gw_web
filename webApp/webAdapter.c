@@ -54,7 +54,6 @@ int main(int argc,char** argv)
 	check_assert();
 
 	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
-	//zlog_category_t *zlog_handler = serverLog("./zlog_default.conf");
 
 	zlog_info(zlog_handler,"start webAdapter process\n");
 

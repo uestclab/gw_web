@@ -7,7 +7,7 @@
 int IQ_register_callback(char* buf, int buf_len, void* arg)
 {
 	g_dma_para* g_dma = (g_dma_para*)arg;
-    zlog_info(g_dma->log_handler, " test point 1 : start IQ call_back , buf_len = %d \n", buf_len);
+    //zlog_info(g_dma->log_handler, " test point 1 : start IQ call_back , buf_len = %d \n", buf_len);
 	if(g_dma->slow_cnt < 50){
 		g_dma->slow_cnt = g_dma->slow_cnt + 1;
 		return 0;
@@ -16,27 +16,27 @@ int IQ_register_callback(char* buf, int buf_len, void* arg)
 
     zlog_info(g_dma->log_handler, " test point 2 : start IQ call_back , buf_len = %d \n", buf_len);
 
-	int messageLen = buf_len + 4 + 4;
-	int type = 0;
 	if(g_dma->csi_state == 1 && g_dma->constellation_state == 0){
         //postMsg(MSG_CSI_READY, buf, buf_len, NULL, g_dma->g_msg_queue);
-		postMsg(MSG_CSI_READY, NULL, 0, NULL, g_dma->g_msg_queue);
-        type = 2;
+        if(buf_len >= 1024){
+		    postMsg(MSG_CSI_READY, buf, 1024, NULL, g_dma->g_msg_queue);
+            zlog_info(g_dma->log_handler, " test point 3 : start IQ call_back  , time stop \n");
+        }
 	}else if(g_dma->constellation_state == 1 && g_dma->csi_state == 0){
         //postMsg(MSG_CONSTELLATION_READY, buf, buf_len, NULL, g_dma->g_msg_queue);
         postMsg(MSG_CONSTELLATION_READY, NULL, 0, NULL, g_dma->g_msg_queue);
-		type = 4;
 	}
-	// htonl ?
-	//*((int32_t*)buf) = (buf_len + 4);
-	//*((int32_t*)(buf+ sizeof(int32_t))) = (type); // 1--rssi , 2--CSI , 3--json , 4--Constellation
-	//int ret = sendToPc(g_dma->g_server, buf, messageLen,type);
+
 	return 0;
 }
+/* need release fft buffer? */
+// fftwf_destroy_plan(p);
+// fftwf_free(in);
+// fftwf_free(out);
 
 int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_category_t* handler){
 
-	zlog_info(handler,"created create_dma_handler() \n");
+	zlog_info(handler,"create create_dma_handler() \n");
 	*g_dma = (g_dma_para*)malloc(sizeof(struct g_dma_para));
 	(*g_dma)->g_server      	   = g_server;                                    //
 	(*g_dma)->enableCallback       = 0;
@@ -52,6 +52,11 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 		zlog_error(handler," In create_dma_handler -------- axidma_open failed !! \n");
 		return -1;
 	}
+
+    g_dma_para* g_dma_tmp = (*g_dma);
+    g_dma_tmp->csi_spectrum = (csi_spectrum_t*)malloc(sizeof(csi_spectrum_t));
+    g_dma_tmp->csi_spectrum->in_IQ   = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * IQ_PAIR_NUM);
+    g_dma_tmp->csi_spectrum->out_fft = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * IQ_PAIR_NUM);
 
 	zlog_info(handler,"End create_dma_handler open axidma() p_csi = %x, \n", (*g_dma)->p_axidma);
 	return 0;
@@ -156,3 +161,12 @@ void stop_constellation(g_dma_para* g_dma){
 }
 
 
+/* ---------------------- CSI function ---------------------------- */
+
+// buf_len == 1024 must /* all compare with before log data*/
+void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
+    parse_IQ_from_net(buf, buf_len, g_dma->csi_spectrum->in_IQ);
+    calculate_spectrum(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->out_fft, &(g_dma->csi_spectrum->p), g_dma->csi_spectrum->spectrum, 256); 
+    myfftshift(g_dma->csi_spectrum->db_array, g_dma->csi_spectrum->spectrum, 256);
+    timeDomainChange(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->time_IQ, 256);
+}
