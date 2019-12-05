@@ -110,7 +110,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				
-				del_user(tmp_receive->connfd, g_server, g_broker, g_threadpool);
+				del_user(tmp_receive->connfd, g_server, g_broker, g_dma, g_threadpool);
 
 				display(g_server);
 
@@ -317,7 +317,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 /* -------------------- event process function --------------------------- */
 
-void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, ThreadPool* g_threadpool){
+void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, ThreadPool* g_threadpool){
 	user_session_node* tmp_node = del_user_node_in_list(connfd, g_server);
 	if(tmp_node == NULL){
 		return;
@@ -332,11 +332,12 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, Thre
 		/* close rssi if need */
 		close_rssi_state_external(connfd, g_broker);
 	}
-	if(tmp_node->record_action->enable_csi_save){
-		/* disable save csi */
-	}
 	if(tmp_node->record_action->enable_start_csi){
 		/* stop csi if need */
+		stop_csi_state_external(connfd, g_dma);
+	}
+	if(tmp_node->record_action->enable_csi_save){
+		/* disable save csi */
 	}
 
 	// free node
