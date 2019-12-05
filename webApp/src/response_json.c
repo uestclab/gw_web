@@ -247,6 +247,36 @@ char* rssi_data_response(double rssi_data){
     return rssi_data_response_json;
 }
 
+/* spectrum array(db_array) and time_IQ */
+char* csi_data_response(float *db_array, float *time_IQ, int len){
+    char* csi_data_response_json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "csi_data_response");
+    cJSON_AddNumberToObject(root, "type", TYPE_CSI_DATA_RESPONSE);
+    cJSON_AddNumberToObject(root, "array_number", len);
+
+    cJSON *array=cJSON_CreateArray();
+    int i;
+    for(i=0;i<len;i++){
+        cJSON *obj_1=cJSON_CreateObject();
+        cJSON_AddNumberToObject(obj_1, "value",db_array[i]);
+        cJSON_AddItemToArray(array,obj_1);    
+    }
+    cJSON_AddItemToObject(root,"ret_spectrum_array",array);
+
+    cJSON *time_array = cJSON_CreateArray();
+    for(i=0;i<len;i++){
+        cJSON *obj_1=cJSON_CreateObject();
+        cJSON_AddNumberToObject(obj_1, "value",time_IQ[i]);
+        cJSON_AddItemToArray(time_array,obj_1);   
+    }
+    cJSON_AddItemToObject(root,"ret_time_array",time_array);
+
+    csi_data_response_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return csi_data_response_json;
+}
+
 /* test */
 char* test_json(int op_cmd){
     char* test_json = NULL;
@@ -262,3 +292,5 @@ char* test_json(int op_cmd){
     cJSON_Delete(root);
     return test_json;
 }
+
+

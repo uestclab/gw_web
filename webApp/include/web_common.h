@@ -5,6 +5,20 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <assert.h>
+#include "tiny_queue.h"
+/* write file */
+typedef struct write_file_t{
+	pthread_mutex_t  	mutex;
+	int             	enable; // produce_enable: 
+	tiny_queue_t*  		queue;
+	char           		file_name[1024];
+	FILE*          		file;
+}write_file_t;
+
+typedef struct queue_item{
+	char* buf;
+	int   buf_len;
+}queue_item;
 
 typedef enum msg_event{
 	/* test msg type */
@@ -49,6 +63,13 @@ typedef enum frame_type{
 	TYPE_INQUIRY_RSSI_REQUEST = 41,
 	TYPE_RSSI_DATA_RESPONSE,
 	TYPE_RSSI_CONTROL,
+	TYPE_START_CSI = 51,
+	TYPE_STOP_CSI,
+	TYPE_CONTROL_SAVE_CSI,
+	TYPE_CSI_DATA_RESPONSE,
+	TYPE_START_CONSTELLATION = 61,
+	TYPE_STOP_CONSTELLATION,
+	TYPE_CONSTELLATION_DATA_RESPONSE,
 }frame_type;
 
 typedef struct reg_state_t{

@@ -17,6 +17,8 @@ char* reg_state_response(reg_state_t* reg_state);
 
 char* rssi_data_response(double rssi_data);
 
+char* csi_data_response(float *db_array, float *time_IQ, int len);
+
 /* test */
 char* test_json(int op_cmd);
 

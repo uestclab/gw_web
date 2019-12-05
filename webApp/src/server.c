@@ -30,6 +30,16 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 		postMsg(MSG_INQUIRY_RSSI, NULL, 0, g_receive, g_receive->g_msg_queue);
 	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
 		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
+	}else if(type == TYPE_START_CSI){ // start csi 
+		postMsg(MSG_START_CSI, NULL, 0, g_receive, g_receive->g_msg_queue);
+	}else if(type == TYPE_STOP_CSI){ // stop csi
+		postMsg(MSG_STOP_CSI, NULL, 0, g_receive, g_receive->g_msg_queue);
+	}else if(type == TYPE_CONTROL_SAVE_CSI){ // save csi data or not
+		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
+	}else if(type == TYPE_START_CONSTELLATION){ // start constellation
+		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, g_receive->g_msg_queue);
+	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
+		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, g_receive->g_msg_queue);
 	}else if(type == 22){ // rf_mf_state
 		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
 	} 
@@ -207,6 +217,9 @@ user_session_node* new_user_node(g_server_para* g_server){
 
     new_node->record_action->enable_rssi = 0;
     new_node->record_action->enable_rssi_save = 0;
+
+    new_node->record_action->enable_start_csi = 0;
+    new_node->record_action->enable_csi_save = 0;
 
     list_add_tail(&new_node->list, &g_server->user_session_node_head);
     g_server->user_session_cnt++;

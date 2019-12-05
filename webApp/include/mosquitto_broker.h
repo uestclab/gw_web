@@ -9,23 +9,7 @@
 
 #include "gw_control.h"
 #include "server.h"
-#include "tiny_queue.h"
-
-#define READ  0
-#define WRITE 1
-/* write file */
-typedef struct write_file_t{
-	pthread_mutex_t  	mutex;
-	int             	enable; // produce_enable: 
-	tiny_queue_t*  		queue;
-	char           		file_name[1024];
-	FILE*          		file;
-}write_file_t;
-
-typedef struct queue_item{
-	char* buf;
-	int   buf_len;
-}queue_item;
+#include "web_common.h"
 
 typedef struct json_set_para{
     char*              system_state_json;
@@ -81,7 +65,6 @@ int inquiry_system_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
 int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
 int inquiry_dac_state();
 
-void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len);
 
 void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker);
 int open_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external

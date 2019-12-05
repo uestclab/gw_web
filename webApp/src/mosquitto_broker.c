@@ -6,7 +6,6 @@
 #include "broker.h"
 #include "mosquitto_broker.h"
 #include "cJSON.h"
-#include "web_common.h"
 #include "response_json.h"
 #include "small_utility.h"
 
@@ -90,8 +89,8 @@ int inform_exception(char* buf, int buf_len, char *from, void* arg)
 	if(strcmp(from,"mon/all/pub/system_stat") == 0){
 		zlog_info(g_broker_temp->log_handler,"inform_exception: mon/all/pub/system_stat , buf = %s \n", buf);
         postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, buf_len, NULL, g_broker_temp->g_msg_queue);	
-	}else if(strcmp(from,"rf/all/pub/rssi") == 0){ 
-		print_rssi_struct(g_broker_temp,buf,buf_len); // send rssi struct stream to pc	
+	}else if(strcmp(from,"rf/all/pub/rssi") == 0){
+		postMsg(MSG_RSSI_READY_AND_SEND, buf, buf_len, NULL, g_broker_temp->g_msg_queue);	
 	}
 	return ret;
 }
@@ -304,25 +303,6 @@ int inquiry_dac_state(){
 }
 
 // ---------- rssi ----------------
-/* value as input , cmd control rw*/
-/* not use any more */
-int threadsafe_rw_enable_rssi(rssi_user_node* tmp_node, int value, int cmd){
-	pthread_mutex_lock(&tmp_node->rssi_file_t->mutex);
-	if(cmd == WRITE){
-		tmp_node->rssi_file_t->enable = value;
-		pthread_mutex_unlock(&tmp_node->rssi_file_t->mutex); // note that: pthread_mutex_unlock before return !!!!! 
-		return 0;
-	}
-	int ret = tmp_node->rssi_file_t->enable;
-	pthread_mutex_unlock(&tmp_node->rssi_file_t->mutex);
-	return ret;
-}
-
-/* other thread call */
-void print_rssi_struct(g_broker_para* g_broker, char* buf, int buf_len){
-	//struct rssi_priv* tmp_buf = (struct rssi_priv*)buf;
-	postMsg(MSG_RSSI_READY_AND_SEND, buf, buf_len, NULL, g_broker_temp->g_msg_queue);
-}
 
 int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 	zlog_info(g_broker->log_handler,"rssi json = %s \n",buf);
@@ -345,6 +325,8 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 			g_broker->rssi_module.rssi_state = 1;
 		zlog_info(g_broker->log_handler,"rssi_state = %d \n, rssi return json = %s \n", g_broker->rssi_module.rssi_state, stat_buf);
 		free(stat_buf);
+	}else{
+		;// if json process return error, postException msg and some rssi_enable state must change
 	}
 	cJSON_Delete(root);
 	return ret;
