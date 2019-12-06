@@ -25,6 +25,8 @@ typedef struct csi_spectrum_t{
     float spectrum[IQ_PAIR_NUM];
     float db_array[IQ_PAIR_NUM];
     float time_IQ[IQ_PAIR_NUM];
+	char           buf[1024];
+	int            buf_len;
 }csi_spectrum_t;
 
 typedef struct g_dma_para{
@@ -66,12 +68,16 @@ int start_csi_state_external(int connfd, g_dma_para* g_dma); // control by exter
 int stop_csi_state_external(int connfd, g_dma_para* g_dma); // control by external
 
 void send_csi_display_in_event_loop(g_dma_para* g_dma);
-
-void start_constellation(g_dma_para* g_dma);
-void stop_constellation(g_dma_para* g_dma);
-
 /* csi spectrum and time domain */
 void processCSI(char* buf, int buf_len, g_dma_para* g_dma);
+int process_csi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_dma_para* g_dma);
+void send_csi_to_save(g_dma_para* g_dma);
+void clear_csi_write_status(csi_save_user_node* user_node, g_dma_para* g_dma);
+void inform_stop_csi_write_thread(int connfd, g_dma_para* g_dma);
+
+/* constellation function */
+void start_constellation(g_dma_para* g_dma);
+void stop_constellation(g_dma_para* g_dma);
 
 
 

@@ -17,18 +17,20 @@ g_receive_para* findReceiveNode(int connfd, g_broker_para* g_broker){
 	struct user_session_node *pnode = NULL;
 	g_receive_para* tmp_receive = NULL;
 	list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){    
+		if(pnode->g_receive->connfd == connfd){
+			tmp_receive = pnode->g_receive;
 			break;
 		}
 	}
-	tmp_receive = pnode->g_receive;
 	return tmp_receive;
 }
 
 rssi_user_node* findNode(int connfd, g_broker_para* g_broker){
 	struct rssi_user_node *pnode = NULL;
-	list_for_each_entry(pnode, &g_broker->rssi_user_node_head, list) {
-		if(pnode->connfd == connfd){    
+	struct rssi_user_node *tmp = NULL;
+	list_for_each_entry(tmp, &g_broker->rssi_user_node_head, list) {
+		if(tmp->connfd == connfd){
+			pnode = tmp;    
 			break;
 		}
 	}
@@ -480,7 +482,7 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 		printf("file_name : %s\n",tmp_node->rssi_file_t->file_name);
 		tmp_node->rssi_file_t->file = fopen(tmp_node->rssi_file_t->file_name,"wb");
 		if(tmp_node->rssi_file_t->file == NULL){
-			zlog_error(g_broker->log_handler,"Cannot create the rssi queue\n");
+			zlog_error(g_broker->log_handler,"Cannot create the rssi file\n");
 			cJSON_Delete(root);
 			return -1;
 		}

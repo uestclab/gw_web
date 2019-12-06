@@ -249,28 +249,24 @@ char* rssi_data_response(double rssi_data){
 
 /* spectrum array(db_array) and time_IQ */
 char* csi_data_response(float *db_array, float *time_IQ, int len){
+
+    int db_int[256];
+    int time_int[256];
+
+    for(int i=0;i<256;i++){
+        db_int[i] = (int)db_array[i];
+        time_int[i] = (int)(time_IQ[i] * 10000);
+    }
+
     char* csi_data_response_json = NULL;
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "comment", "csi_data_response");
     cJSON_AddNumberToObject(root, "type", TYPE_CSI_DATA_RESPONSE);
     cJSON_AddNumberToObject(root, "array_number", len);
 
-    cJSON *array=cJSON_CreateArray();
-    int i;
-    for(i=0;i<len;i++){
-        cJSON *obj_1=cJSON_CreateObject();
-        cJSON_AddNumberToObject(obj_1, "value",db_array[i]);
-        cJSON_AddItemToArray(array,obj_1);    
-    }
-    cJSON_AddItemToObject(root,"ret_spectrum_array",array);
+    cJSON_AddItemToObject(root, "ret_spectrum_array", cJSON_CreateIntArray(db_int, len));
+    cJSON_AddItemToObject(root, "ret_time_array", cJSON_CreateIntArray(time_int, len));
 
-    cJSON *time_array = cJSON_CreateArray();
-    for(i=0;i<len;i++){
-        cJSON *obj_1=cJSON_CreateObject();
-        cJSON_AddNumberToObject(obj_1, "value",time_IQ[i]);
-        cJSON_AddItemToArray(time_array,obj_1);   
-    }
-    cJSON_AddItemToObject(root,"ret_time_array",time_array);
 
     csi_data_response_json = cJSON_Print(root);
     cJSON_Delete(root);
@@ -282,11 +278,11 @@ char* test_json(int op_cmd){
     char* test_json = NULL;
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "comment", "test_json");
-    cJSON_AddNumberToObject(root, "type", TYPE_RSSI_CONTROL);
-    cJSON_AddStringToObject(root, "dst","rssi");
+    cJSON_AddNumberToObject(root, "type", TYPE_CONTROL_SAVE_CSI);
+    cJSON_AddStringToObject(root, "dst","csi");
     cJSON_AddNumberToObject(root, "op_cmd",op_cmd);
 
-	cJSON_AddStringToObject(root, "file_name","rssi.dat");
+	cJSON_AddStringToObject(root, "file_name","csi");
 
     test_json = cJSON_Print(root);
     cJSON_Delete(root);

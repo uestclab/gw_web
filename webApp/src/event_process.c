@@ -212,6 +212,8 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
     			root = cJSON_Parse(p_conf_file);
     			item = cJSON_GetObjectItem(root,"id");
 				int state_id = item->valueint;
+				item = cJSON_GetObjectItem(root,"cmd");
+				int cmd = item->valueint;
 
 				struct user_session_node *pnode = NULL;
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
@@ -224,6 +226,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 							postMsg(MSG_START_CONSTELLATION,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
 						}else if(state_id == 44){
 							postMsg(MSG_STOP_CONSTELLATION,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
+						}else if(state_id == 99){
+							char* buf = NULL;
+							if(cmd == 1){
+								buf = test_json(1);
+							}else{
+								buf = test_json(0);
+							}	
+							postMsg(MSG_CONTROL_SAVE_IQ_DATA,buf,strlen(buf)+1,pnode->g_receive,g_broker->g_msg_queue);
+							free(buf);
 						}					
 					}
 				}
@@ -261,17 +272,22 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			}
 			case MSG_CSI_READY:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
 
 				if(getData->msg_len != 1024){
 					zlog_info(zlog_handler," getData->msg_len != 1024 : %d ",getData->msg_len);
 					break;
 				}
 
-				zlog_info(zlog_handler," start processCSI() .... \n ");
+				//zlog_info(zlog_handler," start processCSI() .... \n ");
 				processCSI(getData->msg_json, 1024, g_dma);
+				//zlog_info(zlog_handler," completed processCSI() .... \n");
+				
+				/* send to display */
 				send_csi_display_in_event_loop(g_dma);
-				zlog_info(zlog_handler," completed processCSI() .... \n");
+
+				/* send to save */
+				send_csi_to_save(g_dma);
 
 				break;
 			}
@@ -303,7 +319,19 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
+				process_csi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len, g_dma);
+
 				record_csi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
+
+				break;
+			}
+			case MSG_CLEAR_CSI_WRITE_STATUS:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_CSI_WRITE_STATUS: msg_number = %d",getData->msg_number);
+
+				csi_save_user_node* tmp_node = (csi_save_user_node*)getData->tmp_data;
+
+				clear_csi_write_status(tmp_node,g_dma);
 
 				break;
 			}
@@ -338,6 +366,7 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dm
 	}
 	if(tmp_node->record_action->enable_csi_save){
 		/* disable save csi */
+		inform_stop_csi_write_thread(connfd, g_dma);
 	}
 
 	// free node
