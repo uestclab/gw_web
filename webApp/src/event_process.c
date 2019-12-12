@@ -53,7 +53,7 @@ void* monitor_conf_thread(void* args){
 		state = get_md5sum(sum, conf_path);
 		int ret = memcmp(old_sum,sum,16);
 		if(ret != 0){
-			postMsg(MSG_CONF_CHANGE,conf_path,strlen(conf_path)+1,NULL,g_broker->g_msg_queue);
+			postMsg(MSG_CONF_CHANGE,conf_path,strlen(conf_path)+1,NULL,0,g_broker->g_msg_queue);
 			memcpy(old_sum,sum,16);
 		}
 	}
@@ -219,13 +219,13 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
 						if(state_id == 11){
-							postMsg(MSG_START_CSI,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
+							postMsg(MSG_START_CSI,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
 						}else if(state_id == 22){
-							postMsg(MSG_STOP_CSI,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
+							postMsg(MSG_STOP_CSI,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
 						}else if(state_id == 33){
-							postMsg(MSG_START_CONSTELLATION,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
+							postMsg(MSG_START_CONSTELLATION,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
 						}else if(state_id == 44){
-							postMsg(MSG_STOP_CONSTELLATION,NULL,0,pnode->g_receive,g_broker->g_msg_queue);
+							postMsg(MSG_STOP_CONSTELLATION,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
 						}else if(state_id == 99){
 							char* buf = NULL;
 							if(cmd == 1){
@@ -233,7 +233,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 							}else{
 								buf = test_json(0);
 							}	
-							postMsg(MSG_CONTROL_SAVE_IQ_DATA,buf,strlen(buf)+1,pnode->g_receive,g_broker->g_msg_queue);
+							postMsg(MSG_CONTROL_SAVE_IQ_DATA,buf,strlen(buf)+1,pnode->g_receive,0,g_broker->g_msg_queue);
 							free(buf);
 						}					
 					}
@@ -294,22 +294,42 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_START_CONSTELLATION:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CONSTELLATION: msg_number = %d",getData->msg_number);
-				
-				start_constellation(g_dma);
+
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				start_constellation_external(tmp_receive->connfd,g_dma);
+
+				record_constell_start_enable(tmp_receive->connfd, START, g_server);
 
 				break;
 			}
 			case MSG_STOP_CONSTELLATION:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CONSTELLATION: msg_number = %d",getData->msg_number);
-				
-				stop_constellation(g_dma);
+
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				stop_constellation_external(tmp_receive->connfd, g_dma);
+
+				record_constell_start_enable(tmp_receive->connfd, STOP, g_server);
 
 				break;
 			}
 			case MSG_CONSTELLATION_READY:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
+
+				//zlog_info(zlog_handler,"tmp_data_len = %d ", getData->tmp_data_len);
+
+				/* process IQ data */
+				//zlog_info(zlog_handler," start processConstellation() .... \n ");
+				processConstellation(getData->tmp_data, getData->tmp_data_len, g_dma);
+				//zlog_info(zlog_handler," stop processConstellation() .... \n ");
+
+				/* send IQ data to display */
+				//zlog_info(zlog_handler," start send_constell_display_in_event_loop() .... \n ");
+				send_constell_display_in_event_loop(g_dma);
+				//zlog_info(zlog_handler," stop send_constell_display_in_event_loop() .... \n ");
 
 				break;
 			}
@@ -367,6 +387,10 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dm
 	if(tmp_node->record_action->enable_csi_save){
 		/* disable save csi */
 		inform_stop_csi_write_thread(connfd, g_dma);
+	}
+	if(tmp_node->record_action->enable_start_constell){
+		/* stop constellation if need */
+		stop_constellation_external(connfd, g_dma);
 	}
 
 	// free node
@@ -465,3 +489,14 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 	return 0;
 }
 
+/* --------------------------------- constellation record function ------------------------------------------ */
+void record_constell_start_enable(int connfd, int enable, g_server_para* g_server){
+	struct user_session_node *pnode = NULL;
+	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+		if(pnode->g_receive->connfd == connfd){
+			pnode->record_action->enable_start_constell = enable;
+			zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
+            break;
+		}
+	}
+}

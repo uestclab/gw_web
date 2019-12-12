@@ -273,6 +273,30 @@ char* csi_data_response(float *db_array, float *time_IQ, int len){
     return csi_data_response_json;
 }
 
+char* constell_data_response(int *vectReal, int *vectImag, int len){
+
+    char* constell_data_response_json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "constell_data_response");
+    cJSON_AddNumberToObject(root, "type", TYPE_CONSTELLATION_DATA_RESPONSE);
+    cJSON_AddNumberToObject(root, "array_number", len);
+
+    cJSON *array=cJSON_CreateArray();
+
+    int iq_pair[2];
+    for(int i=0;i<len;i++){
+        iq_pair[0] = vectReal[i];
+        iq_pair[1] = vectImag[i];
+        cJSON_AddItemToArray(array,cJSON_CreateIntArray(iq_pair, 2));
+    }
+
+    cJSON_AddItemToObject(root,"ret_iq_array",array);
+
+    constell_data_response_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return constell_data_response_json;
+}
+
 /* test */
 char* test_json(int op_cmd){
     char* test_json = NULL;

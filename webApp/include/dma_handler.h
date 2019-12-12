@@ -10,6 +10,18 @@
 #include "zlog.h"
 
 #define IQ_PAIR_NUM 256
+#define CONSTELLATION_IQ_PAIR 10000
+
+typedef struct constellation_module_t{
+	int       constellation_state;
+	int 	  user_cnt;
+}constellation_module_t;
+
+typedef struct constellation_iq_pair{
+	int vectReal[CONSTELLATION_IQ_PAIR];
+	int vectImag[CONSTELLATION_IQ_PAIR];
+	int iq_cnt;
+}constellation_iq_pair;
 
 typedef struct csi_module_t{
 	uint32_t           slow_cnt;            		   // for send cnt to slow datas
@@ -38,10 +50,19 @@ typedef struct g_dma_para{
 	struct list_head   csi_user_node_head;
 	struct list_head   csi_save_user_node_head;
 
-	int                constellation_state;
+	constellation_iq_pair* cons_iq_pair;
+	constellation_module_t constellation_module;
+	struct list_head   constell_user_node_head;
+
 	void *             p_axidma;
 	zlog_category_t*   log_handler;
 }g_dma_para;
+
+typedef struct constell_user_node{
+	g_dma_para*            g_dma;
+	int                    connfd;
+	struct list_head       list;
+}constell_user_node;
 
 typedef struct csi_user_node{
 	g_dma_para*            g_dma;
@@ -76,17 +97,14 @@ void clear_csi_write_status(csi_save_user_node* user_node, g_dma_para* g_dma);
 void inform_stop_csi_write_thread(int connfd, g_dma_para* g_dma);
 
 /* constellation function */
-void start_constellation(g_dma_para* g_dma);
-void stop_constellation(g_dma_para* g_dma);
+int start_constellation(g_dma_para* g_dma);
+int stop_constellation(g_dma_para* g_dma);
+int start_constellation_external(int connfd, g_dma_para* g_dma);
+int stop_constellation_external(int connfd, g_dma_para* g_dma);
+void send_constell_display_in_event_loop(g_dma_para* g_dma);
 
-
+void processConstellation(char* buf, int buf_len, g_dma_para* g_dma);
 
 #endif//DMA_HANDLER_H
 
-
-
-// void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker);
-// int open_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external
-// int close_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external 
-// int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker); // control by internal
 

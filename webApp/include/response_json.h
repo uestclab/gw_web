@@ -19,6 +19,8 @@ char* rssi_data_response(double rssi_data);
 
 char* csi_data_response(float *db_array, float *time_IQ, int len);
 
+char* constell_data_response(int *vectReal, int *vectImag, int len);
+
 /* test */
 char* test_json(int op_cmd);
 

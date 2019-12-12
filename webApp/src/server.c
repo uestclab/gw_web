@@ -23,25 +23,25 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 	int type = myNtohl(buf + 4);
 	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
 	if(type == TYPE_SYSTEM_STATE_REQUEST){
-		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_REG_STATE_REQUEST){ // json
-		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
-		postMsg(MSG_INQUIRY_RSSI, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_RSSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
-		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_START_CSI){ // start csi 
-		postMsg(MSG_START_CSI, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_START_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_STOP_CSI){ // stop csi
-		postMsg(MSG_STOP_CSI, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_STOP_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_CONTROL_SAVE_CSI){ // save csi data or not
-		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_START_CONSTELLATION){ // start constellation
-		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
-		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == 22){ // rf_mf_state
-		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
 	} 
 	return 0;
 }
@@ -123,7 +123,7 @@ void* receive_thread(void* args){
     	receive(g_receive);
     }
 
-	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
+	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
     zlog_info(g_receive->log_handler,"end Exit receive_thread()\n");
 }
 
@@ -164,7 +164,7 @@ void* runServer(void* args){
 			zlog_info(g_server->log_handler," -------------------accept new client , connfd = %d \n", connfd);
             int* buf = (int*)malloc(sizeof(int));
             *buf = connfd;
-			postMsg(MSG_ACCEPT_NEW_USER,NULL,0,buf,g_server->g_msg_queue);
+			postMsg(MSG_ACCEPT_NEW_USER,NULL,0,buf,0,g_server->g_msg_queue);
 		}
 		zlog_info(g_server->log_handler,"========waiting for client's request========\n");
 	}
@@ -220,6 +220,8 @@ user_session_node* new_user_node(g_server_para* g_server){
 
     new_node->record_action->enable_start_csi = 0;
     new_node->record_action->enable_csi_save = 0;
+
+    new_node->record_action->enable_start_constell = 0;
 
     list_add_tail(&new_node->list, &g_server->user_session_node_head);
     g_server->user_session_cnt++;

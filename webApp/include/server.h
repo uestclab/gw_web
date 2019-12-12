@@ -19,6 +19,7 @@ typedef struct record_action_t{
 	int         enable_rssi_save;
 	int         enable_start_csi;
 	int         enable_csi_save;
+	int         enable_start_constell;
 }record_action_t;
 
 typedef struct g_receive_para{

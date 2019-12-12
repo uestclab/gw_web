@@ -42,6 +42,18 @@ csi_save_user_node* findCsiSaveUserNode(int connfd, g_dma_para* g_dma){
 	return pnode;
 }
 
+constell_user_node* findConstellUserNode(int connfd, g_dma_para* g_dma){
+	struct constell_user_node *pnode = NULL;
+	struct constell_user_node *tmp = NULL;
+	list_for_each_entry(tmp, &g_dma->constell_user_node_head, list) {
+		if(tmp->connfd == connfd){ 
+			pnode = tmp;   
+			break;
+		}
+	}
+	return pnode;
+}
+
 /* ----------------------- common use ------------------------- */
 
 
@@ -59,15 +71,18 @@ int IQ_register_callback(char* buf, int buf_len, void* arg)
 
     //zlog_info(g_dma->log_handler, " test point 2 : start IQ call_back , buf_len = %d \n", buf_len);
 
-	if(g_dma->csi_module.csi_state == 1 && g_dma->constellation_state == 0){
-        //postMsg(MSG_CSI_READY, buf, buf_len, NULL, g_dma->g_msg_queue);
+	if(g_dma->csi_module.csi_state == 1 && g_dma->constellation_module.constellation_state == 0){
         if(buf_len >= 1024){
-		    postMsg(MSG_CSI_READY, buf + 8, 1024, NULL, g_dma->g_msg_queue); // empty 8 byte in front of buf , buf_len indicate IQ length --- note
+		    postMsg(MSG_CSI_READY, buf + 8, 1024, NULL, 0, g_dma->g_msg_queue); // empty 8 byte in front of buf , buf_len indicate IQ length --- note
             //zlog_info(g_dma->log_handler, " test point 3 : start IQ call_back  , time stop \n");
         }
-	}else if(g_dma->constellation_state == 1 && g_dma->csi_module.csi_state == 0){
-        //postMsg(MSG_CONSTELLATION_READY, buf, buf_len, NULL, g_dma->g_msg_queue);
-        postMsg(MSG_CONSTELLATION_READY, NULL, 0, NULL, g_dma->g_msg_queue);
+	}else if(g_dma->constellation_module.constellation_state == 1 && g_dma->csi_module.csi_state == 0){
+		int tmp_data_len = buf_len;
+		if(buf_len > 2000)
+			tmp_data_len = 2000;
+		char* tmp_data = malloc(tmp_data_len);
+		memcpy(tmp_data, buf + 8, tmp_data_len);
+        postMsg(MSG_CONSTELLATION_READY, NULL, 0, tmp_data, tmp_data_len, g_dma->g_msg_queue);
 	}
 
 	return 0;
@@ -84,7 +99,7 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	(*g_dma)->g_server      	   = g_server;                                    //
 	(*g_dma)->enableCallback       = 0;
 	//(*g_dma)->csi_state            = 0;                                           // csi_state
-	(*g_dma)->constellation_state  = 0;                                           // constellation_state
+	//(*g_dma)->constellation_state  = 0;                                           // constellation_state
 	(*g_dma)->g_msg_queue          = g_server->g_msg_queue;
 	(*g_dma)->p_axidma             = NULL;
 	(*g_dma)->log_handler          = handler;
@@ -110,6 +125,14 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	(*g_dma)->csi_module.user_cnt  = 0;
 	(*g_dma)->csi_module.slow_cnt  = 0;
 	(*g_dma)->csi_module.save_user_cnt = 0;
+
+
+	g_dma_tmp->cons_iq_pair = (constellation_iq_pair*)malloc(sizeof(constellation_iq_pair));
+	g_dma_tmp->cons_iq_pair->iq_cnt = 0;
+	INIT_LIST_HEAD(&(g_dma_tmp->constell_user_node_head));
+	g_dma_tmp->constellation_module.constellation_state = 0;
+	g_dma_tmp->constellation_module.user_cnt = 0;
+
 
 	zlog_info(handler,"End create_dma_handler open axidma() p_csi = %x, \n", (*g_dma)->p_axidma);
 	return 0;
@@ -166,7 +189,6 @@ int stop_csi(g_dma_para* g_dma){
 	}else{
 		rc = axidma_stop(g_dma->p_axidma);
 		g_dma->csi_module.csi_state = 0;
-		g_dma->constellation_state = 0;
 		zlog_info(g_dma->log_handler,"rc = %d , stop_csi() \n" , rc);
 		return rc;
 	}
@@ -272,7 +294,7 @@ void* csi_write_thread(void* args){
 		free(work_item);
 	}
 
-	postMsg(MSG_CLEAR_CSI_WRITE_STATUS,NULL,0,tmp_node,g_dma->g_msg_queue);
+	postMsg(MSG_CLEAR_CSI_WRITE_STATUS,NULL,0,tmp_node,0, g_dma->g_msg_queue);
 	zlog_info(g_dma->log_handler,"end Exit csi_write_thread()\n");
 }
 
@@ -324,7 +346,7 @@ int process_csi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_dma_pa
 
 		item = cJSON_GetObjectItem(root,"file_name");
 
-		sprintf(tmp_node->csi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%d-%s.dat", connfd,item->valuestring);
+		sprintf(tmp_node->csi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%s", item->valuestring);
 		printf("csi file_name : %s\n",tmp_node->csi_file_t->file_name);
 		tmp_node->csi_file_t->file = fopen(tmp_node->csi_file_t->file_name,"wb");
 		if(tmp_node->csi_file_t->file == NULL){
@@ -417,74 +439,109 @@ void inform_stop_csi_write_thread(int connfd, g_dma_para* g_dma){
 	pnode->csi_file_t->enable = 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void start_constellation(g_dma_para* g_dma){
+/* --------------------------- constellation control func --------------------------------------- */
+// internel
+int start_constellation(g_dma_para* g_dma){
 	int rc;
-	if(g_dma->constellation_state == 1){
-		zlog_info(g_dma->log_handler,"constellation is already start\n");
-		return;
-	}
 	if(g_dma->p_axidma == NULL){
 		zlog_info(g_dma->log_handler,"g_dma->p_axidma == NULL start_constellation\n");
-		g_dma->constellation_state = 0;
-		return;
+		g_dma->constellation_module.constellation_state = 0;
+		return -1;
 	}else{
 		rc = axidma_chan(g_dma->p_axidma, 0x80);
 		rc = axidma_start(g_dma->p_axidma);
-		g_dma->constellation_state = 1;
+		g_dma->constellation_module.constellation_state = 1;
 		zlog_info(g_dma->log_handler,"rc = %d , start_constellation() \n" , rc);
+		return rc;
 	}	
 }
 
-void stop_constellation(g_dma_para* g_dma){
+int stop_constellation(g_dma_para* g_dma){
 	int rc;
-	if(g_dma->constellation_state == 0){
-		zlog_info(g_dma->log_handler,"constellation is already stop\n");
-		return;
-	}
 	if(g_dma->p_axidma == NULL){
 		zlog_info(g_dma->log_handler,"g_dma->p_axidma == NULL stop_constellation\n");
-		g_dma->constellation_state = 0;
-		return;
+		g_dma->constellation_module.constellation_state = 0;
+		return -1;
 	}else{
 		rc = axidma_stop(g_dma->p_axidma);
-		g_dma->constellation_state = 0;
+		g_dma->constellation_module.constellation_state = 0;
 		zlog_info(g_dma->log_handler,"rc = %d , stop_constellation() \n" , rc);
+		return rc;
 	}
 }
+
+int start_constellation_external(int connfd, g_dma_para* g_dma){
+	int state;
+	if(g_dma->constellation_module.user_cnt == 0 && g_dma->constellation_module.constellation_state == 0){
+		zlog_info(g_dma->log_handler,"start constellation in start_constellation() \n");
+		state = start_constellation(g_dma);
+	}
+
+	/* need check if this connfd has in list? --------------------------------------------------------------- Note*/
+	constell_user_node* tmp_node = findConstellUserNode(connfd, g_dma);
+	if(tmp_node == NULL){
+		constell_user_node* new_node = (constell_user_node*)malloc(sizeof(constell_user_node));
+		new_node->connfd = connfd;
+		new_node->g_dma = g_dma;
+
+		list_add_tail(&new_node->list, &g_dma->constell_user_node_head);
+		g_dma->constellation_module.user_cnt++;
+		tmp_node = new_node;
+		zlog_info(g_dma->log_handler, "new consteallation user node ... 0x%x \n",tmp_node);
+		zlog_info(g_dma->log_handler,"start consteallation user_cnt = %d \n",g_dma->constellation_module.user_cnt);
+	}
+
+	return 0;
+}
+
+/* call by close webpage or manually*/
+int stop_constellation_external(int connfd, g_dma_para* g_dma){
+    struct list_head *pos, *n;
+    struct constell_user_node *pnode = NULL;
+    list_for_each_safe(pos, n, &g_dma->constell_user_node_head){
+        pnode = list_entry(pos, struct constell_user_node, list);
+        if(pnode->connfd == connfd){
+            list_del(pos);
+            g_dma->constellation_module.user_cnt--;
+			zlog_info(g_dma->log_handler,"find node in stop_constellation_external() ! connfd = %d, user_cnt = %d ", connfd,g_dma->constellation_module.user_cnt);
+            break;
+        }
+    }
+
+	if(pnode != NULL){
+		// free pnode
+		zlog_info(g_dma->log_handler," stop_constellation_external : delete from list , free this node 0x%x \n", pnode);
+		free(pnode);
+	}
+
+	if(g_dma->constellation_module.user_cnt == 0 && g_dma->constellation_module.constellation_state == 1){
+		zlog_info(g_dma->log_handler,"stop constellation in stop_constellation() \n");
+		stop_constellation(g_dma);
+	}
+
+	return 0;
+}
+
+void send_constell_display_in_event_loop(g_dma_para* g_dma){
+
+	char* constell_data_response_json = constell_data_response(g_dma->cons_iq_pair->vectReal, g_dma->cons_iq_pair->vectImag, g_dma->cons_iq_pair->iq_cnt);
+
+	//zlog_info(g_dma->log_handler,"send_constell_display_in_event_loop() \n");
+
+	struct constell_user_node *pnode = NULL;
+	list_for_each_entry(pnode, &g_dma->constell_user_node_head, list) {
+		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
+		if(tmp_receive != NULL){
+			//zlog_info(g_dma->log_handler, "json = %s", constell_data_response_json);
+			zlog_info(g_dma->log_handler, "send constell iq to node js , json len : %d , iq_cnt = %d \n", strlen(constell_data_response_json), g_dma->cons_iq_pair->iq_cnt);
+			//assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),TYPE_CONSTELLATION_DATA_RESPONSE);
+		}
+	}
+
+	free(constell_data_response_json);	
+
+}
+
 
 
 /* ---------------------- CSI function ---------------------------- */
@@ -498,4 +555,47 @@ void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
     calculate_spectrum(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->out_fft, &(g_dma->csi_spectrum->p), g_dma->csi_spectrum->spectrum, 256); 
     myfftshift(g_dma->csi_spectrum->db_array, g_dma->csi_spectrum->spectrum, 256);
     timeDomainChange(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->time_IQ, 256);
+}
+
+
+/* ---------------------- process constellation function ---------------------------- */
+
+void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
+	g_dma->cons_iq_pair->iq_cnt = 0;
+
+	// find I data --- 0 : I , 1 : Q 
+	int start_idx = 0;
+	int end_idx = buf_len;
+	zlog_info(g_dma->log_handler,"checkIQ(buf[start_idx] = %d, buf[start_idx] = %d , buf[start_idx+1 = %d ",checkIQ(buf[start_idx]), buf[start_idx],buf[start_idx+1]);
+	if(checkIQ(buf[start_idx]) == 1){
+		start_idx = start_idx + 1;
+		if(checkIQ(buf[start_idx]) == 1){
+			zlog_error(g_dma->log_handler,"Error in IQ sequence \n ");
+			return;
+		}
+	}
+	if((buf_len - start_idx)%2 == 1)
+		end_idx = buf_len - 1;
+	
+	int i=0;
+	int iq_cnt = 0;
+	int sw_temp = 0;
+	for(i=start_idx;i<end_idx;i++){
+		zlog_info(g_dma->log_handler, "buf[i] = %d", buf[i]);
+		buf[i] = buf[i] << 1; // shift to 8 bit, low bit fill 0, -128 - 127
+		zlog_info(g_dma->log_handler, "buf[i]<<1 = %d ", buf[i]);
+		unsigned short tmp = (unsigned short)(buf[i]);
+		int value_i = tmp;
+		if(value_i > 127)
+			value_i = value_i - 256;
+		if(sw_temp == 0){
+			g_dma->cons_iq_pair->vectReal[iq_cnt] = value_i;
+			sw_temp = 1;
+		}else if(sw_temp == 1){
+			g_dma->cons_iq_pair->vectImag[iq_cnt] = value_i;
+			sw_temp = 0;
+			iq_cnt = iq_cnt + 1;
+		}
+	}
+	g_dma->cons_iq_pair->iq_cnt = iq_cnt;
 }

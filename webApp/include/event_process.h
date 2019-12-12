@@ -27,6 +27,8 @@ int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serv
 void record_csi_start_enable(int connfd, int enable, g_server_para* g_server);
 int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_server_para* g_server);
 
+void record_constell_start_enable(int connfd, int enable, g_server_para* g_server);
+
 #endif//EVENT_PROCESS_H
 
 

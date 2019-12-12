@@ -90,9 +90,9 @@ int inform_exception(char* buf, int buf_len, char *from, void* arg)
 	int ret = 0;
 	if(strcmp(from,"mon/all/pub/system_stat") == 0){
 		zlog_info(g_broker_temp->log_handler,"inform_exception: mon/all/pub/system_stat , buf = %s \n", buf);
-        postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, buf_len, NULL, g_broker_temp->g_msg_queue);	
+        postMsg(MSG_SYSTEM_STATE_EXCEPTION, buf, buf_len, NULL, 0, g_broker_temp->g_msg_queue);	
 	}else if(strcmp(from,"rf/all/pub/rssi") == 0){
-		postMsg(MSG_RSSI_READY_AND_SEND, buf, buf_len, NULL, g_broker_temp->g_msg_queue);	
+		postMsg(MSG_RSSI_READY_AND_SEND, buf, buf_len, NULL, 0, g_broker_temp->g_msg_queue);	
 	}
 	return ret;
 }
@@ -438,7 +438,7 @@ void* rssi_write_thread(void* args){
 		free(work_item);
 	}
 
-	postMsg(MSG_CLEAR_RSSI_WRITE_STATUS,NULL,0,tmp_node,g_broker->g_msg_queue);
+	postMsg(MSG_CLEAR_RSSI_WRITE_STATUS,NULL,0,tmp_node,0,g_broker->g_msg_queue);
 	zlog_info(g_broker->log_handler,"end Exit rssi_write_thread()\n");
 }
 
@@ -478,7 +478,7 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 
 		item = cJSON_GetObjectItem(root,"file_name");
 
-		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%d-%s.dat", connfd,item->valuestring);
+		sprintf(tmp_node->rssi_file_t->file_name, "/run/media/mmcblk1p1/gw_web/web/log/%s", item->valuestring);
 		printf("file_name : %s\n",tmp_node->rssi_file_t->file_name);
 		tmp_node->rssi_file_t->file = fopen(tmp_node->rssi_file_t->file_name,"wb");
 		if(tmp_node->rssi_file_t->file == NULL){

@@ -3,12 +3,13 @@
 #include <math.h>
 #include "cJSON.h"
 
-void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, g_msg_queue_para* g_msg_queue){
+void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue){
 	struct msg_st data;
 	data.msg_type = msg_type;
 	data.msg_number = msg_type;
 
 	data.tmp_data = tmp_data;
+	data.tmp_data_len = tmp_data_len; // just usr for constellation IQ data transfer
 
 	data.msg_len = buf_len;
 	if(buf != NULL && buf_len != 0)
@@ -262,8 +263,14 @@ void timeDomainChange(fftwf_complex *in_IQ,float* time_IQ, int len){
 	}
 }
 
-
-
+/* ------------------ constellation IQ data process ------------ */
+// 0: I, 1: Q
+int checkIQ(char input){
+	if(input < 0)
+		return 1;
+	else
+		return 0;
+}
 
 
 
