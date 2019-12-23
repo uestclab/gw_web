@@ -17,7 +17,7 @@
 #include "gw_macros_util.h"
 #include "small_utility.h"
 
-#define BUFFER_SIZE 1024 * 4
+#define BUFFER_SIZE 1024 * 40
 
 int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 	int type = myNtohl(buf + 4);

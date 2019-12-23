@@ -3,12 +3,10 @@ option(PUBLIC "This is a default option for PUBLIC" ON)
 message(STATUS "build public platform switch:"${PUBLIC})
 project(webAdapter)
 
-include_directories("/home/gyl/liqingSpace/code/tmp/srsLTE/lib/fftw-3.3.8/arm/include")
-include_directories("/home/gyl/liqingSpace/code/GW_handover/handover_Server/dependence/include/")
+include_directories("/home/dpdk/liqing/code/GW_handover/handover_Server/dependence/include/")
 include_directories("${PROJECT_SOURCE_DIR}/include")
 include_directories("${PROJECT_SOURCE_DIR}/lib")
 include_directories("${PROJECT_SOURCE_DIR}/utility_lib")
-link_directories("/home/gyl/liqingSpace/code/tmp/srsLTE/lib/fftw-3.3.8/arm/lib/")
 link_directories("${PROJECT_SOURCE_DIR}/utility_lib/lib/")
 ADD_SUBDIRECTORY(utility_lib)
 
@@ -17,7 +15,7 @@ if(${PUBLIC} STREQUAL "ON")
 	# cross complie
 	SET(CMAKE_SYSTEM_NAME Linux)
 	SET(CMAKE_SYSTEM_PROCESSOR arm) 
-	SET(TOOLCHAIN_DIR "/home/gyl/petalinux/tools/linux-i386/gcc-arm-linux-gnueabi")
+	SET(TOOLCHAIN_DIR "/home/dpdk/liqing/petalinux/gcc-arm-linux-gnueabi")
 	SET(CMAKE_FIND_ROOT_PATH ${TOOLCHAIN_DIR})
 	SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 	SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
@@ -25,16 +23,15 @@ if(${PUBLIC} STREQUAL "ON")
 
 	SET(CMAKE_C_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-gcc-6.2.1)
 	SET(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-g++)
-	link_directories("/home/gyl/liqingSpace/code/GW_handover/handover_Server/dependence/lib_arm/")
+	link_directories("/home/dpdk/liqing/code/GW_handover/handover_Server/dependence/lib_arm/")
 	# zlog
-	link_directories("/home/gyl/liqingSpace/code/GW_arm_server/temp/lib/")
-	include_directories("/home/gyl/liqingSpace/code/GW_arm_server/temp/include/")
+	link_directories("/home/dpdk/liqing/common/lib/")
+	include_directories("/home/dpdk/liqing/common/include/")
 	# cross complie
 
 elseif(${PUBLIC} STREQUAL "OFF")
     message(STATUS "start to build PC platform.")
 	message(STATUS "PROJECT_SOURCE_DIR": ${PROJECT_SOURCE_DIR})
-	link_directories("/home/gyl/liqingSpace/code/GW_handover/handover_Server/dependence/lib/")
 endif(${PUBLIC} STREQUAL "ON")
 
 SET(CMAKE_BUILD_TYPE "Debug")  

@@ -61,20 +61,14 @@ constell_user_node* findConstellUserNode(int connfd, g_dma_para* g_dma){
 int IQ_register_callback(char* buf, int buf_len, void* arg)
 {
 	g_dma_para* g_dma = (g_dma_para*)arg;
-	usleep(100000);
-    //zlog_info(g_dma->log_handler, " test point 1 : start IQ call_back , buf_len = %d \n", buf_len);
-	// if(g_dma->csi_module.slow_cnt < 50 * 10 * 10 ){
-	// 	g_dma->csi_module.slow_cnt = g_dma->csi_module.slow_cnt + 1;
-	// 	return 0;
-	// }
-	g_dma->csi_module.slow_cnt = 0;
 
-    //zlog_info(g_dma->log_handler, " test point 2 : start IQ call_back , buf_len = %d \n", buf_len);
+	usleep(100000);
+
+	g_dma->csi_module.slow_cnt = 0;
 
 	if(g_dma->csi_module.csi_state == 1 && g_dma->constellation_module.constellation_state == 0){
         if(buf_len >= 1024){
 		    postMsg(MSG_CSI_READY, buf + 8, 1024, NULL, 0, g_dma->g_msg_queue); // empty 8 byte in front of buf , buf_len indicate IQ length --- note
-            //zlog_info(g_dma->log_handler, " test point 3 : start IQ call_back  , time stop \n");
         }
 	}else if(g_dma->constellation_module.constellation_state == 1 && g_dma->csi_module.csi_state == 0){
 		int tmp_data_len = buf_len;
@@ -98,12 +92,9 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	*g_dma = (g_dma_para*)malloc(sizeof(struct g_dma_para));
 	(*g_dma)->g_server      	   = g_server;                                    //
 	(*g_dma)->enableCallback       = 0;
-	//(*g_dma)->csi_state            = 0;                                           // csi_state
-	//(*g_dma)->constellation_state  = 0;                                           // constellation_state
 	(*g_dma)->g_msg_queue          = g_server->g_msg_queue;
 	(*g_dma)->p_axidma             = NULL;
 	(*g_dma)->log_handler          = handler;
-	//(*g_dma)->slow_cnt             = 0;
 
 	(*g_dma)->p_axidma = axidma_open();
 	if((*g_dma)->p_axidma == NULL){
@@ -250,10 +241,6 @@ void send_csi_display_in_event_loop(g_dma_para* g_dma){
 
 	char* csi_data_response_json = csi_data_response(g_dma->csi_spectrum->db_array, g_dma->csi_spectrum->time_IQ,256);
 
-	//zlog_info(g_dma->log_handler,"---------\n %s \n", csi_data_response_json);
-
-	//zlog_info(g_dma->log_handler, "send_csi_display_in_event_loop \n");
-
 	struct csi_user_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_dma->csi_user_node_head, list) {
 		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
@@ -312,7 +299,7 @@ int process_csi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_dma_pa
 
 	/* need check if this connfd has in list? --------------------------------------------------------------- Note*/
 	csi_save_user_node* tmp_node = findCsiSaveUserNode(connfd, g_dma);
-	zlog_error(g_dma->log_handler, "find tmp_node : 0x%x , connfd = %d , save_user_cnt = %d \n", tmp_node, connfd, g_dma->csi_module.save_user_cnt);
+	//zlog_error(g_dma->log_handler, "find tmp_node : 0x%x , connfd = %d , save_user_cnt = %d \n", tmp_node, connfd, g_dma->csi_module.save_user_cnt);
 	if(tmp_node == NULL){
 		csi_save_user_node* new_node = (csi_save_user_node*)malloc(sizeof(csi_save_user_node));
 		new_node->connfd = connfd;
@@ -526,15 +513,12 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 
 	char* constell_data_response_json = constell_data_response(g_dma->cons_iq_pair->vectReal, g_dma->cons_iq_pair->vectImag, g_dma->cons_iq_pair->iq_cnt);
 
-	//zlog_info(g_dma->log_handler,"send_constell_display_in_event_loop() \n");
-
 	struct constell_user_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_dma->constell_user_node_head, list) {
 		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
 		if(tmp_receive != NULL){
-			//zlog_info(g_dma->log_handler, "json = %s", constell_data_response_json);
-			zlog_info(g_dma->log_handler, "send constell iq to node js , json len : %d , iq_cnt = %d \n", strlen(constell_data_response_json), g_dma->cons_iq_pair->iq_cnt);
-			//assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),TYPE_CONSTELLATION_DATA_RESPONSE);
+			//zlog_info(g_dma->log_handler, "send constell iq to node js , json len : %d , iq_cnt = %d \n", strlen(constell_data_response_json), g_dma->cons_iq_pair->iq_cnt);
+			assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),64);
 		}
 	}
 
@@ -566,7 +550,7 @@ void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 	// find I data --- 0 : I , 1 : Q 
 	int start_idx = 0;
 	int end_idx = buf_len;
-	zlog_info(g_dma->log_handler,"checkIQ(buf[start_idx] = %d, buf[start_idx] = %d , buf[start_idx+1 = %d ",checkIQ(buf[start_idx]), buf[start_idx],buf[start_idx+1]);
+	//zlog_info(g_dma->log_handler,"checkIQ(buf[start_idx] = %d, buf[start_idx] = %d , buf[start_idx+1 = %d ",checkIQ(buf[start_idx]), buf[start_idx],buf[start_idx+1]);
 	if(checkIQ(buf[start_idx]) == 1){
 		start_idx = start_idx + 1;
 		if(checkIQ(buf[start_idx]) == 1){
@@ -581,9 +565,9 @@ void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 	int iq_cnt = 0;
 	int sw_temp = 0;
 	for(i=start_idx;i<end_idx;i++){
-		zlog_info(g_dma->log_handler, "buf[i] = %d", buf[i]);
+		//zlog_info(g_dma->log_handler, "buf[i] = %d", buf[i]);
 		buf[i] = buf[i] << 1; // shift to 8 bit, low bit fill 0, -128 - 127
-		zlog_info(g_dma->log_handler, "buf[i]<<1 = %d ", buf[i]);
+		//zlog_info(g_dma->log_handler, "buf[i]<<1 = %d ", buf[i]);
 		unsigned short tmp = (unsigned short)(buf[i]);
 		int value_i = tmp;
 		if(value_i > 127)
