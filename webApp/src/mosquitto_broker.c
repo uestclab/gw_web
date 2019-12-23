@@ -326,18 +326,31 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 		else
 			g_broker->rssi_module.rssi_state = 1;
 		zlog_info(g_broker->log_handler,"rssi_state = %d \n, rssi return json = %s \n", g_broker->rssi_module.rssi_state, stat_buf);
+
+		cJSON *ret_root = cJSON_Parse(stat_buf);
+		cJSON *ret_item = cJSON_GetObjectItem(ret_root,"stat");
+		if( strcmp(ret_item->valuestring,"0") == 0){
+			ret = 0;
+		}else{
+			ret = -1;
+		}
 		free(stat_buf);
+		cJSON_Delete(ret_root);
 	}else{
-		;// if json process return error, postException msg and some rssi_enable state must change
+		ret = -1;// if json process return error, postException msg and some rssi_enable state must change
 	}
 	cJSON_Delete(root);
 	return ret;
 }
 
 int open_rssi_state_external(int connfd, g_broker_para* g_broker){
+	int ret = -1;
 	if(g_broker->rssi_module.user_cnt == 0 && g_broker->rssi_module.rssi_state == 0){
 		zlog_info(g_broker->log_handler,"open rssi in control_rssi_state() \n");
-		control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
+		ret = control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
+		if(ret != 0){
+			return -1;
+		}
 	}
 
     rssi_user_node* new_node = (rssi_user_node*)malloc(sizeof(rssi_user_node));
@@ -453,6 +466,11 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 	}
 
 	rssi_user_node* tmp_node = findNode(connfd, g_broker); // before save rssi , must be open rssi 
+	if(tmp_node == NULL){
+		zlog_error(g_broker->log_handler," No rssi user node in Node list ");
+		return -2;
+	}
+
 	if(tmp_node->rssi_file_t == NULL){ // first access 
 		tmp_node->rssi_file_t         = (write_file_t*)malloc(sizeof(write_file_t));
 		pthread_mutex_init(&(tmp_node->rssi_file_t->mutex),NULL);
@@ -466,14 +484,14 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 		if(tmp_node->rssi_file_t->enable == 0){
 			zlog_error(g_broker->log_handler,"has already close rssi save in this page : %d \n", connfd);
 			cJSON_Delete(root);
-			return 0;
+			return -1;
 		}
 		inform_stop_rssi_write_thread(connfd, g_broker);
 	}else if(item->valueint == 1){ /* start save */
 		if(tmp_node->rssi_file_t->enable == 1){
 			zlog_error(g_broker->log_handler,"has already open rssi save in this page : %d \n", connfd);
 			cJSON_Delete(root);
-			return 0;
+			return -1;
 		}
 
 		item = cJSON_GetObjectItem(root,"file_name");

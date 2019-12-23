@@ -297,6 +297,18 @@ char* constell_data_response(int *vectReal, int *vectImag, int len){
     return constell_data_response_json;
 }
 
+char* cmd_state_response(int state){
+    char* cmd_state_response_json = NULL;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "cmd_state_response_json");
+    cJSON_AddNumberToObject(root, "type", TYPE_CMD_STATE_RESPONSE);
+    cJSON_AddNumberToObject(root, "cmd_state",state);
+
+    cmd_state_response_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return cmd_state_response_json;
+}
+
 /* test */
 char* test_json(int op_cmd){
     char* test_json = NULL;

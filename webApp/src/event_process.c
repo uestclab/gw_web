@@ -152,9 +152,11 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RSSI: msg_number = %d",getData->msg_number);
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				/* open rssi */
-				open_rssi_state_external(tmp_receive->connfd, g_broker);
-				/* record open rssi : if check return of open_rssi_state_external() ?*/
-				record_rssi_enable(tmp_receive->connfd, g_server);
+				int ret = open_rssi_state_external(tmp_receive->connfd, g_broker);
+				/* record open rssi : when check return */
+				if(ret == 0){
+					record_rssi_enable(tmp_receive->connfd, g_server);
+				}
 
 				break;
 			}
@@ -175,10 +177,13 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
-				process_rssi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len,g_broker);
+				int ret = process_rssi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len,g_broker);
 				/* record rssi save cmd : if check return of process_rssi_save_file() ?*/
-				record_rssi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
-
+				if(ret == 0){
+					record_rssi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
+				}
+				/* inform node js cmd state */
+				send_cmd_state(tmp_receive ,ret);
 				break;
 			}
 			case MSG_CLEAR_RSSI_WRITE_STATUS: // case 2 : if not close save rssi manually, this event must be behind MSG_RECEIVE_THREAD_CLOSED
@@ -252,9 +257,21 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
-				start_csi_state_external(tmp_receive->connfd,g_dma);
+				/* check mutex with constell */
+				int state = check_constell_working(g_server);
+				if(state == 1){
+					send_cmd_state(tmp_receive ,CSI_CONSTELL_MUTEX);
+					break;
+				}
 
-				record_csi_start_enable(tmp_receive->connfd, START, g_server);
+				state = start_csi_state_external(tmp_receive->connfd,g_dma);
+
+				if(state == 0){
+					record_csi_start_enable(tmp_receive->connfd, START, g_server);
+				}
+
+				/* inform node js cmd state */
+				send_cmd_state(tmp_receive ,state);
 
 				break;
 			}
@@ -268,6 +285,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_csi_start_enable(tmp_receive->connfd, STOP, g_server);
 
+				/* inform node js cmd state */
+				send_cmd_state(tmp_receive,CMD_OK);
+
 				break;
 			}
 			case MSG_CSI_READY:
@@ -279,9 +299,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					break;
 				}
 
-				//zlog_info(zlog_handler," start processCSI() .... \n ");
 				processCSI(getData->msg_json, 1024, g_dma);
-				//zlog_info(zlog_handler," completed processCSI() .... \n");
 				
 				/* send to display */
 				send_csi_display_in_event_loop(g_dma);
@@ -297,9 +315,18 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 
+				/* check mutex with csi */
+				int state = check_csi_working(g_server);
+				if(state == 1){
+					send_cmd_state(tmp_receive ,CSI_CONSTELL_MUTEX);
+					break;
+				}
+
 				start_constellation_external(tmp_receive->connfd,g_dma);
 
 				record_constell_start_enable(tmp_receive->connfd, START, g_server);
+
+				send_cmd_state(tmp_receive ,CMD_OK);
 
 				break;
 			}
@@ -313,23 +340,19 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_constell_start_enable(tmp_receive->connfd, STOP, g_server);
 
+				send_cmd_state(tmp_receive ,CMD_OK);
+
 				break;
 			}
 			case MSG_CONSTELLATION_READY:
 			{
 				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
 
-				//zlog_info(zlog_handler,"tmp_data_len = %d ", getData->tmp_data_len);
-
 				/* process IQ data */
-				//zlog_info(zlog_handler," start processConstellation() .... \n ");
 				processConstellation(getData->tmp_data, getData->tmp_data_len, g_dma);
-				//zlog_info(zlog_handler," stop processConstellation() .... \n ");
 
 				/* send IQ data to display */
-				//zlog_info(zlog_handler," start send_constell_display_in_event_loop() .... \n ");
 				send_constell_display_in_event_loop(g_dma);
-				//zlog_info(zlog_handler," stop send_constell_display_in_event_loop() .... \n ");
 
 				break;
 			}
@@ -342,6 +365,8 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				process_csi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len, g_dma);
 
 				record_csi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
+
+				send_cmd_state(tmp_receive ,CMD_OK);
 
 				break;
 			}
@@ -500,3 +525,47 @@ void record_constell_start_enable(int connfd, int enable, g_server_para* g_serve
 		}
 	}
 }
+
+
+/* --------------------------  cmd CMD_OK or CMD_FAIL and mutex check between csi and constellation ----------------------------------*/
+// #define CMD_OK 0
+// #define CMD_FAIL -1
+// #define CSI_CONSTELL_MUTEX 2
+void send_cmd_state(g_receive_para* g_receive ,int state){
+	int cmd_state = CMD_FAIL;
+	if(state == CMD_OK){
+		cmd_state = CMD_OK;
+	}else if(state == CSI_CONSTELL_MUTEX){
+		cmd_state = CSI_CONSTELL_MUTEX;
+	}
+	
+	char *cmd_state_response_json = cmd_state_response(cmd_state);
+	//zlog_info(g_receive->log_handler,"cmd_state = %s \n",cmd_state_response_json);
+	assemble_frame_and_send(g_receive,cmd_state_response_json,strlen(cmd_state_response_json),TYPE_CMD_STATE_RESPONSE);
+	free(cmd_state_response_json);
+}
+
+int check_constell_working(g_server_para* g_server){
+	int state = -1;
+    struct user_session_node *tmp_node = NULL;
+    list_for_each_entry(tmp_node, &g_server->user_session_node_head, list) {
+		state = tmp_node->record_action->enable_start_constell;
+		if(state == 1){
+			break;
+		}
+    }
+	return state;
+}
+
+int check_csi_working(g_server_para* g_server){
+	int state = -1;
+    struct user_session_node *tmp_node = NULL;
+    list_for_each_entry(tmp_node, &g_server->user_session_node_head, list) {
+		state = tmp_node->record_action->enable_start_csi;
+		if(state == 1){
+            break;
+        }
+    }
+	return state;
+}
+

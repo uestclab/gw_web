@@ -21,6 +21,8 @@ char* csi_data_response(float *db_array, float *time_IQ, int len);
 
 char* constell_data_response(int *vectReal, int *vectImag, int len);
 
+char* cmd_state_response(int state);
+
 /* test */
 char* test_json(int op_cmd);
 

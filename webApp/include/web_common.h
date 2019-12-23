@@ -71,6 +71,7 @@ typedef enum frame_type{
 	TYPE_START_CONSTELLATION = 61,
 	TYPE_STOP_CONSTELLATION,
 	TYPE_CONSTELLATION_DATA_RESPONSE,
+	TYPE_CMD_STATE_RESPONSE = 70,
 }frame_type;
 
 typedef struct reg_state_t{

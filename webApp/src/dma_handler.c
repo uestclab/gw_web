@@ -186,10 +186,12 @@ int stop_csi(g_dma_para* g_dma){
 }
 
 int start_csi_state_external(int connfd, g_dma_para* g_dma){
-	int state;
+	int state = -1;
 	if(g_dma->csi_module.user_cnt == 0 && g_dma->csi_module.csi_state == 0){
 		zlog_info(g_dma->log_handler,"start csi in start_csi() \n");
 		state = start_csi(g_dma);
+		if(state !=0 )
+			return -1;
 	}
 
 	/* need check if this connfd has in list? --------------------------------------------------------------- Note*/
