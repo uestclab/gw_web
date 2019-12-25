@@ -520,7 +520,7 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
 		if(tmp_receive != NULL){
 			//zlog_info(g_dma->log_handler, "send constell iq to node js , json len : %d , iq_cnt = %d \n", strlen(constell_data_response_json), g_dma->cons_iq_pair->iq_cnt);
-			assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),64);
+			assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),TYPE_CONSTELLATION_DATA_RESPONSE + 1);
 		}
 	}
 

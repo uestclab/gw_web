@@ -42,7 +42,17 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == 22){ // rf_mf_state
 		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
-	} 
+	}else if(type == TYPE_OPEN_DISTANCE_APP){ // open distance app
+        postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_DISTANCE_APP){ // close distance app
+        postMsg(MSG_CLOSE_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_DAC){ // open dac
+        postMsg(MSG_OPEN_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_DAC){ // close dac
+        postMsg(MSG_CLOSE_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLEAR_LOG){ // clear log
+        postMsg(MSG_CLEAR_LOG, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }  
 	return 0;
 }
 
@@ -263,10 +273,6 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
     *((int32_t*)(temp_buf + sizeof(int32_t))) = htonl(type);
     memcpy(temp_buf + FRAME_HEAD_ROOM,buf,buf_len);
     int ret = send(g_receive->connfd, temp_buf, length, type);
-    if(type == TYPE_SYSTEM_STATE_EXCEPTION){
-        zlog_info(g_receive->log_handler, "length = %d , type = %d \n", length, type);
-        zlog_info(g_receive->log_handler, "send json : %s \n", buf);
-    }
     if(ret != length){
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
     }

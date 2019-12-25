@@ -46,6 +46,7 @@ void closeServerLog(){
 void check_assert(){
 	assert(sizeof (uint32_t) == 4);
 	printf("uint32_t : %d , uint64_t : %d \n", sizeof(uint32_t),sizeof(u_int64_t));
+	printf("gw_web version built time is:[%s  %s]\n",__DATE__,__TIME__);
 }
 
 int main(int argc,char** argv)
@@ -60,8 +61,8 @@ int main(int argc,char** argv)
 	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
 	
 	/* msg_queue */
-	const char* pro_path = "/tmp/handover_test/";
-	int proj_id = 'w';
+	const char* pro_path = "/tmp/web/";
+	int proj_id = 0x4;
 	g_msg_queue_para* g_msg_queue = createMsgQueue(pro_path, proj_id, zlog_handler);
 	if(g_msg_queue == NULL){
 		zlog_info(zlog_handler,"No msg_queue created \n");

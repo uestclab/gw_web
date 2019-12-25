@@ -223,24 +223,17 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				struct user_session_node *pnode = NULL;
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
-						if(state_id == 11){
-							postMsg(MSG_START_CSI,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 22){
-							postMsg(MSG_STOP_CSI,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 33){
-							postMsg(MSG_START_CONSTELLATION,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 44){
-							postMsg(MSG_STOP_CONSTELLATION,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 99){
-							char* buf = NULL;
-							if(cmd == 1){
-								buf = test_json(1);
-							}else{
-								buf = test_json(0);
-							}	
-							postMsg(MSG_CONTROL_SAVE_IQ_DATA,buf,strlen(buf)+1,pnode->g_receive,0,g_broker->g_msg_queue);
-							free(buf);
-						}					
+						if(state_id == 11 && cmd == 11){
+							postMsg(MSG_OPEN_DISTANCE_APP,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+						}else if(state_id == 22 && cmd == 22){
+							postMsg(MSG_CLOSE_DISTANCE_APP,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+						}else if(state_id == 33 && cmd == 33){
+							postMsg(MSG_OPEN_DAC,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+						}else if(state_id == 44 && cmd == 44){
+							postMsg(MSG_CLOSE_DAC,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+						}else if(state_id == 99 && cmd == 99){
+							postMsg(MSG_CLEAR_LOG,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+						}				
 					}
 				}
 
@@ -378,6 +371,46 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				clear_csi_write_status(tmp_node,g_dma);
 
+				break;
+			}
+			case MSG_OPEN_DISTANCE_APP:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DISTANCE_APP: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				system("sh /tmp/gw_app/distance/conf/open_app.sh");
+				send_cmd_state(tmp_receive ,CMD_OK);
+				break;
+			}
+			case MSG_CLOSE_DISTANCE_APP:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DISTANCE_APP: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				system("sh /tmp/gw_app/distance/conf/close_app.sh");
+				send_cmd_state(tmp_receive ,CMD_OK);
+				break;
+			}
+			case MSG_OPEN_DAC:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DAC: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				system("echo 1 > /sys/class/gpio/gpio973/value");
+				send_cmd_state(tmp_receive ,CMD_OK);
+				break;
+			}
+			case MSG_CLOSE_DAC:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DAC: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				system("echo 0 > /sys/class/gpio/gpio973/value");
+				send_cmd_state(tmp_receive ,CMD_OK);
+				break;
+			}
+			case MSG_CLEAR_LOG:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_LOG: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				system("sh /tmp/web/conf/clear_log.sh");
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			default:
@@ -540,7 +573,6 @@ void send_cmd_state(g_receive_para* g_receive ,int state){
 	}
 	
 	char *cmd_state_response_json = cmd_state_response(cmd_state);
-	//zlog_info(g_receive->log_handler,"cmd_state = %s \n",cmd_state_response_json);
 	assemble_frame_and_send(g_receive,cmd_state_response_json,strlen(cmd_state_response_json),TYPE_CMD_STATE_RESPONSE);
 	free(cmd_state_response_json);
 }

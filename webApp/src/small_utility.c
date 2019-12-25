@@ -266,7 +266,7 @@ void timeDomainChange(fftwf_complex *in_IQ,float* time_IQ, int len){
 /* ------------------ constellation IQ data process ------------ */
 // 0: I, 1: Q
 int checkIQ(char input){
-	if(input < 0)
+	if(input > 127)
 		return 1;
 	else
 		return 0;
