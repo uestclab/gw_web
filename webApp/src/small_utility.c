@@ -275,6 +275,34 @@ int checkIQ(char input){
 
 
 
+/* --------------------- process exsit ----------------------- */
+int IsProcessIsRun(char *proc)
+{
+    FILE* fp = NULL; 
+    int count = -1; 
+    int BUFSZ = 100; 
+    char buf[BUFSZ]; 
+    char command[150]; 
+ 
+    sprintf(command, "ps aux | grep %s | grep -v grep | wc -l", proc); 
+
+    if((fp = popen(command,"r")) == NULL) 
+    { 
+        return -1;
+    } 
+    if((fgets(buf,BUFSZ,fp))!= NULL) 
+    { 
+        count = atoi(buf); 
+    }
+	//printf("count = %d \n", count); 
+    
+    pclose(fp); 
+    
+    fp=NULL; 
+    
+	return count;
+}
+
 
 
 

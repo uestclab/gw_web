@@ -253,7 +253,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				/* check mutex with constell */
 				int state = check_constell_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CSI_CONSTELL_MUTEX);
+					send_cmd_state(tmp_receive ,CSI_MUTEX);
 					break;
 				}
 
@@ -311,7 +311,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				/* check mutex with csi */
 				int state = check_csi_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CSI_CONSTELL_MUTEX);
+					send_cmd_state(tmp_receive ,CONSTELL_MUTEX);
 					break;
 				}
 
@@ -561,15 +561,18 @@ void record_constell_start_enable(int connfd, int enable, g_server_para* g_serve
 
 
 /* --------------------------  cmd CMD_OK or CMD_FAIL and mutex check between csi and constellation ----------------------------------*/
-// #define CMD_OK 0
-// #define CMD_FAIL -1
-// #define CSI_CONSTELL_MUTEX 2
+#define CMD_OK 0
+#define CMD_FAIL -1
+#define CSI_MUTEX 2
+#define CONSTELL_MUTEX 3
 void send_cmd_state(g_receive_para* g_receive ,int state){
 	int cmd_state = CMD_FAIL;
 	if(state == CMD_OK){
 		cmd_state = CMD_OK;
-	}else if(state == CSI_CONSTELL_MUTEX){
-		cmd_state = CSI_CONSTELL_MUTEX;
+	}else if(state == CSI_MUTEX){
+		cmd_state = CSI_MUTEX;
+	}else if(state == CONSTELL_MUTEX){
+		cmd_state = CONSTELL_MUTEX;
 	}
 	
 	char *cmd_state_response_json = cmd_state_response(cmd_state);

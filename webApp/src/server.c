@@ -239,7 +239,7 @@ user_session_node* new_user_node(g_server_para* g_server){
     return new_node;
 }
 
-user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){
+user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){ // may not find the node ?
     struct list_head *pos, *n;
     struct user_session_node *pnode = NULL;
     list_for_each_safe(pos, n, &g_server->user_session_node_head){
@@ -276,6 +276,11 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
     if(ret != length){
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
     }
+
+    // if(TYPE_SYSTEM_STATE_RESPONSE == type){
+    //     zlog_info(g_receive->log_handler, "system state json : %s ", buf);
+    // }
+
     pthread_mutex_unlock(&(g_receive->send_mutex));
     return ret;
 }

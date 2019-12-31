@@ -34,6 +34,8 @@ void timeDomainChange(fftwf_complex *in_IQ, float* time_IQ, int len); // len = 2
 /* ------------------ constellation IQ data process ------------ */
 int checkIQ(char input);
 
+int IsProcessIsRun(char *proc);
+
 #ifdef __cplusplus
     }
 #endif

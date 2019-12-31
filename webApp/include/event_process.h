@@ -20,7 +20,8 @@
 
 #define CMD_OK 0
 #define CMD_FAIL -1
-#define CSI_CONSTELL_MUTEX 2
+#define CSI_MUTEX 2
+#define CONSTELL_MUTEX 3
 
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler); 
 
