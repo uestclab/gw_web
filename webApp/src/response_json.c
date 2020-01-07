@@ -43,7 +43,7 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
         cJSON_AddItemToArray(array,obj_dac);
 
         cJSON *obj_dis_app=cJSON_CreateObject();
-        cJSON_AddStringToObject(obj_dis_app, "name","distance_app_state");
+        cJSON_AddStringToObject(obj_dis_app, "name","distance_state");
         cJSON_AddNumberToObject(obj_dis_app, "value",distance_app_state);
         cJSON_AddItemToArray(array,obj_dis_app);
 

@@ -305,16 +305,6 @@ int IsProcessIsRun(char *proc)
 
 
 
-
-
-
-
-
-
-
-
-
-
 /* --- tmp ---- */
 
 /* i2c interface */

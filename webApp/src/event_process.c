@@ -2,6 +2,7 @@
 #include "event_process.h"
 #include "web_common.h"
 #include "small_utility.h"
+#include "auto_log.h"
 
 /* test */
 #include "response_json.h"
@@ -68,6 +69,10 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
+	if(auto_log_start(&logc,zlog_handler) != 0){
+		return;
+	}
+
 	create_monitor_configue_change(g_broker);
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -220,25 +225,20 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				item = cJSON_GetObjectItem(root,"cmd");
 				int cmd = item->valueint;
 
+				int state_cnt = -1;
 				struct user_session_node *pnode = NULL;
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
 						if(state_id == 11 && cmd == 11){
-							postMsg(MSG_OPEN_DISTANCE_APP,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
+							state_cnt = 1;
 						}else if(state_id == 22 && cmd == 22){
-							postMsg(MSG_CLOSE_DISTANCE_APP,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 33 && cmd == 33){
-							postMsg(MSG_OPEN_DAC,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 44 && cmd == 44){
-							postMsg(MSG_CLOSE_DAC,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}else if(state_id == 99 && cmd == 99){
-							postMsg(MSG_CLEAR_LOG,NULL,0,pnode->g_receive,0,g_broker->g_msg_queue);
-						}				
+							state_cnt = 0;
+						}			
 					}
 				}
 
 
-				//test_process_exception(state_cnt, g_broker);
+				test_process_exception(state_cnt, g_broker);
 				cJSON_Delete(root);
 				free(p_conf_file);
 

@@ -8,6 +8,7 @@
 #include "cJSON.h"
 #include "response_json.h"
 #include "small_utility.h"
+#include "auto_log.h"
 
 g_broker_para* g_broker_temp = NULL;
 
@@ -36,6 +37,23 @@ rssi_user_node* findNode(int connfd, g_broker_para* g_broker){
 	}
 	return pnode;
 }
+
+/* ----------------------- auto log -------------------------------- */
+void my_log_data(double rssi_data, g_broker_para* g_broker){
+	/* snr */
+	double snr = get_rx_snr(g_broker->g_RegDev);
+	/* distance */
+	uint32_t delay_arm_write = get_delay_RW(g_broker->g_RegDev);
+	uint32_t value = get_delay_tick(g_broker->g_RegDev);
+	double distance = (value - delay_arm_write) * 0.149896229;
+
+	log_data_t* data = (log_data_t*)malloc(sizeof(log_data_t));
+	data->rssi = rssi_data;
+	data->snr  = snr;
+	data->distance = distance;
+
+	auto_save_data_log(&logc, data, LOG_DATA);
+}	
 
 /* ----------------------- common use ------------------------- */
 
@@ -125,7 +143,7 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
         }			
 	}else{
 		g_broker->system_ready = 0;
-		char tmp_str[256];
+		char* tmp_str = malloc(256);
 		sprintf(tmp_str, "device is not ready ! %s", item->valuestring);
 		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
 		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1, 0, 0);
@@ -139,7 +157,8 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
 		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));
 		free(response_json);
 		/* clear and reset system state variable */
-	
+		/* ???????????? */
+		auto_save_alarm_log(&logc, tmp_str, strlen(tmp_str)+1, LOG_RADIO_EXCEPTION);
 	}
 	cJSON_Delete(root);
 }
@@ -301,6 +320,7 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 
 	free(reg_state);
 	free(reg_state_response_json);
+
 }
 
 int inquiry_dac_state(){
@@ -424,7 +444,9 @@ void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker){
 			assemble_frame_and_send(tmp_receive,rssi_data_response_json,strlen(rssi_data_response_json),TYPE_RSSI_DATA_RESPONSE);
 	}
 
-	free(rssi_data_response_json);	
+	free(rssi_data_response_json);
+
+	my_log_data(rssi_data,g_broker);
 }
 
 /* ????? */
@@ -548,6 +570,7 @@ void send_rssi_to_save(char* buf, int buf_len, g_broker_para* g_broker){
 				if (tiny_queue_push(pnode->rssi_file_t->queue, item) != 0) {
 					zlog_error(g_broker->log_handler,"Cannot push an element in the queue\n");
 					free(rssi_buf);
+					free(item);
 				}
 
 			}else if(pnode->rssi_file_t->enable == 2){
@@ -558,6 +581,7 @@ void send_rssi_to_save(char* buf, int buf_len, g_broker_para* g_broker){
 
 				if (tiny_queue_push(pnode->rssi_file_t->queue, item) != 0) {
 					zlog_error(g_broker->log_handler,"Cannot push an 0 length element in the queue\n");
+					free(item);
 				}
 				pnode->rssi_file_t->enable = 0;
 			}
@@ -597,6 +621,7 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 
 	if (tiny_queue_push(pnode->rssi_file_t->queue, item) != 0) {
 		zlog_error(g_broker->log_handler,"Cannot push an 0 length element in the queue\n");
+		free(item);
 	}
 	pnode->rssi_file_t->enable = 0;
 }
@@ -604,3 +629,44 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 
 
 /* -----------------------   test   --------------------------------------------- */
+void test_process_exception(int state, g_broker_para* g_broker){
+	if(state == 1){	
+		if(g_broker->system_ready == 0){	
+			g_broker->system_ready = 1;	
+            char* soft_version = c_compiler_builtin_macro();	
+            uint32_t value = get_fpga_version(g_broker->g_RegDev);	
+            char* fpga_version = parse_fpga_version(value);	
+			int dac_state = inquiry_dac_state();
+			int distance_app_state = IsProcessIsRun("distance_main");
+			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,1,dac_state,distance_app_state);
+
+			struct user_session_node *pnode = NULL;	
+			list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
+				if(pnode->g_receive != NULL){    	
+					assemble_frame_and_send(pnode->g_receive,system_state_response_json,strlen(system_state_response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
+				}	
+			}	
+
+            free(system_state_response_json);	
+		}else{	
+            ; // do not inform node.js	
+        }				
+	}else if(state == 0){	
+		g_broker->system_ready = 0;	
+		char tmp_str[256];	
+		sprintf(tmp_str, "device is not ready !");	
+		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);	
+		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1, 0, 0);	
+
+		struct user_session_node *pnode = NULL;	
+		list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
+			if(pnode->g_receive != NULL){    	
+				assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
+			}	
+		}	
+		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));	
+		free(response_json);	
+		/* clear and reset system state variable */	
+
+	}	
+} 
