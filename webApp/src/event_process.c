@@ -3,6 +3,8 @@
 #include "web_common.h"
 #include "small_utility.h"
 #include "auto_log.h"
+#include "sys_handler.h"
+#include "rf_module.h"
 
 /* test */
 #include "response_json.h"
@@ -231,6 +233,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					if(pnode->g_receive != NULL){
 						if(state_id == 11 && cmd == 11){
 							state_cnt = 1;
+							postMsg(MSG_RESET_SYSTEM, NULL, 0, pnode->g_receive, 0, pnode->g_receive->g_msg_queue);
 						}else if(state_id == 22 && cmd == 22){
 							state_cnt = 0;
 						}			
@@ -238,7 +241,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				}
 
 
-				test_process_exception(state_cnt, g_broker);
+				//test_process_exception(state_cnt, g_broker);
 				cJSON_Delete(root);
 				free(p_conf_file);
 
@@ -413,13 +416,65 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
+			case MSG_RESET_SYSTEM:
+			{
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				send_cmd_state(tmp_receive ,CMD_OK);
+				system("reboot");
+				break;
+			}
+			case MSG_INQUIRY_STATISTICS:
+			{
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				inquiry_statistics(tmp_receive, g_broker);
+				break;
+			}
+			case MSG_IP_SETTING:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_IP_SETTING: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				int ret = process_ip_setting(getData->msg_json, getData->msg_len,g_broker->log_handler);
+				break;
+			}
+			case MSG_INQUIRY_RF_INFO:
+			{
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				inquiry_rf_info(tmp_receive, g_broker);
+				break;
+			}
+			case MSG_RF_FREQ_SETTING:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_RF_FREQ_SETTING: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				int ret = process_rf_freq_setting(getData->msg_json, getData->msg_len,g_broker);
+				break;
+			}
+			case MSG_OPEN_TX_POWER:
+			{
+				int ret = open_tx_power();
+				break;
+			}
+			case MSG_CLOSE_TX_POWER:
+			{
+				int ret = close_tx_power();
+				break;
+			}
+			case MSG_OPEN_RX_GAIN:
+			{
+				int ret = rx_gain_high();
+				break;
+			}
+			case MSG_CLOSE_RX_GAIN:
+			{
+				int ret = rx_gain_normal();
+				break;
+			}
 			default:
 				break;
 		}// end switch
 		free(getData);
 	}// end while(1)
 }
-
 
 /* -------------------- event process function --------------------------- */
 

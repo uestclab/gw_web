@@ -13,6 +13,10 @@
 g_broker_para* g_broker_temp = NULL;
 
 /* ----------------------- common use ------------------------- */
+int inquiry_dac_state(){
+	int value = gpio_read(973);
+	return value;
+}
 
 g_receive_para* findReceiveNode(int connfd, g_broker_para* g_broker){
 	struct user_session_node *pnode = NULL;
@@ -40,9 +44,7 @@ rssi_user_node* findNode(int connfd, g_broker_para* g_broker){
 
 system_state_t* get_system_state(g_broker_para* g_broker, char* system_str, int ready){
 	system_state_t* tmp = (system_state_t*)malloc(sizeof(system_state_t));
-	tmp->system_str = NULL;
 	if(system_str != NULL){
-		tmp->system_str = malloc(strlen(system_str)+1);
 		memcpy(tmp->system_str,system_str,strlen(system_str)+1);
 	}
 	if(ready == 1){
@@ -59,9 +61,6 @@ system_state_t* get_system_state(g_broker_para* g_broker, char* system_str, int 
 }
 
 void clear_system_state(system_state_t* tmp){
-	if(tmp->system_str != NULL){
-		free(tmp->system_str);
-	}
 	if(tmp->fpga_version != NULL){
 		free(tmp->fpga_version);
 	}
@@ -109,6 +108,7 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
     (*g_broker)->system_ready      = 0;
     (*g_broker)->g_RegDev          = g_RegDev;
 	(*g_broker)->enableCallback    = 0;
+	(*g_broker)->start_time        = now();
 
 	INIT_LIST_HEAD(&((*g_broker)->rssi_user_node_head));
 	(*g_broker)->rssi_module.rssi_state = 0;
@@ -352,12 +352,6 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	free(reg_state);
 	free(reg_state_response_json);
 
-}
-
-int inquiry_dac_state(){
-	int value = gpio_read(973);
-	//printf("dac state : %d \n",value);
-	return value;
 }
 
 // ---------- rssi ----------------
@@ -698,4 +692,6 @@ void test_process_exception(int state, g_broker_para* g_broker){
 		/* clear and reset system state variable */	
 		clear_system_state(state);
 	}	
-} 
+}
+
+

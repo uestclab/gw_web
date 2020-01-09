@@ -59,6 +59,16 @@ typedef enum msg_event{
 	MSG_CLOSE_DAC,
 	/* clear log */
 	MSG_CLEAR_LOG,
+	/* new add 200103 */
+	MSG_RESET_SYSTEM,
+	MSG_INQUIRY_STATISTICS,
+	MSG_IP_SETTING,
+	MSG_INQUIRY_RF_INFO,
+	MSG_RF_FREQ_SETTING,
+	MSG_OPEN_TX_POWER,
+	MSG_CLOSE_TX_POWER,
+	MSG_OPEN_RX_GAIN,
+	MSG_CLOSE_RX_GAIN,
 }msg_event;
 
 #define FRAME_HEAD_ROOM 8
@@ -85,6 +95,24 @@ typedef enum frame_type{
 	TYPE_OPEN_DAC,
 	TYPE_CLOSE_DAC,
 	TYPE_CLEAR_LOG,
+	// IP setting ------------- below is new type
+	TYPE_IP_SETTING,
+	// RESET 
+	TYPE_RESET, 
+
+	// Statistics info
+	TYPE_STATISTICS_INFO = 81,
+	TYPE_STATISTICS_RESPONSE,
+	// RF info
+	TYPE_RF_INFO = 83,
+	TYPE_RF_INFO_RESPONSE,
+	// RF setting
+	TYPE_RF_FREQ_SETTING = 91,
+	TYPE_OPEN_TX_POWER,
+	TYPE_CLOSE_TX_POWER,
+	TYPE_OPEN_RX_GAIN,
+	TYPE_CLOSE_RX_GAIN,
+
 }frame_type;
 
 typedef struct reg_state_t{
@@ -114,8 +142,6 @@ typedef struct reg_state_t{
 	double          snr;
 	double          distance;
 }reg_state_t;
-
-
 
 
 #endif//WEB_COMMON_H

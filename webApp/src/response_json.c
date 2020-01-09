@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "response_json.h"
+#include "small_utility.h"
 
 
 
@@ -334,20 +335,147 @@ char* cmd_state_response(int state){
     return cmd_state_response_json;
 }
 
-/* test */
-char* test_json(int op_cmd){
-    char* test_json = NULL;
+
+char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t* handler){
+    char* response_json = NULL;
+    int arry_num = 0;
+    uint32_t value = 0;
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "comment", "test_json");
-    cJSON_AddNumberToObject(root, "type", TYPE_CONTROL_SAVE_CSI);
-    cJSON_AddStringToObject(root, "dst","csi");
-    cJSON_AddNumberToObject(root, "op_cmd",op_cmd);
+    cJSON_AddStringToObject(root, "comment", "statistics_response");
+    cJSON_AddNumberToObject(root, "type", TYPE_STATISTICS_RESPONSE);
 
-	cJSON_AddStringToObject(root, "file_name","csi");
+    cJSON *array=cJSON_CreateArray();
+    cJSON *obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","64bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
 
-    test_json = cJSON_Print(root);
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","below_127bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","below_255bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","below_511bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","below_1023bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","below_1518bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","above_1519bytes");
+    cJSON_AddNumberToObject(obj_1, "rx_value",100);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","Frequency_Offset");
+    value = get_freq_offset(g_RegDev);
+    double rx_offset = calculateFreq(value);
+    cJSON_AddNumberToObject(obj_1, "rx_value",rx_offset);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","SNR");
+    double rx_snr = get_rx_snr(g_RegDev);
+    cJSON_AddNumberToObject(obj_1, "rx_value",rx_snr);
+    cJSON_AddNumberToObject(obj_1, "tx_value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","Bandwidth");
+    cJSON_AddNumberToObject(obj_1, "rx_value",1000);
+    cJSON_AddNumberToObject(obj_1, "tx_value",1000);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","Modulation");
+    cJSON_AddStringToObject(obj_1, "rx_value","128QAM");
+    cJSON_AddStringToObject(obj_1, "tx_value","QPSK");
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","acc_seconds");
+	int64_t end = now();
+	double acc_sec = (end-start)/1000000.0;
+    cJSON_AddNumberToObject(obj_1, "value",acc_sec);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    cJSON_AddNumberToObject(root, "array_number", arry_num);
+    cJSON_AddItemToObject(root,"ret_value",array);
+    response_json = cJSON_Print(root);
     cJSON_Delete(root);
-    return test_json;
+    return response_json;
 }
 
+char* rf_info_response(g_RegDev_para* g_RegDev,zlog_category_t* handler){
+   char* response_json = NULL;
+    int arry_num = 0;
+    uint32_t value = 0;
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "comment", "RF_info");
+    cJSON_AddNumberToObject(root, "type", TYPE_RF_INFO_RESPONSE);
 
+    cJSON *array=cJSON_CreateArray();
+    cJSON *obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","frequency");
+    cJSON_AddNumberToObject(obj_1, "value",75535);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","power");
+    cJSON_AddNumberToObject(obj_1, "value",100);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","tx_power");
+    cJSON_AddNumberToObject(obj_1, "value",1);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rx_gain");
+    cJSON_AddNumberToObject(obj_1, "value",1);
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    cJSON_AddNumberToObject(root, "array_number", arry_num);
+    cJSON_AddItemToObject(root,"ret_value",array);
+    response_json = cJSON_Print(root);
+    cJSON_Delete(root);
+    return response_json;   
+}

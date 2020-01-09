@@ -8,6 +8,7 @@
 #include "list.h"
 
 #include "gw_control.h"
+#include "gw_utility.h"
 #include "server.h"
 #include "web_common.h"
 
@@ -24,10 +25,11 @@ typedef struct rssi_module_t{
 
 typedef struct g_broker_para{
     int                system_ready; // device state
+	int64_t            start_time;
 	int                enableCallback;
 	g_msg_queue_para*  g_msg_queue;
 	g_server_para*     g_server;
-    g_RegDev_para*     g_RegDev;
+    g_RegDev_para*     g_RegDev; // gw_control handler
 	rssi_module_t      rssi_module;
 	struct list_head   rssi_user_node_head;
     json_set_para      json_set;
@@ -50,11 +52,6 @@ struct rssi_priv{
 	char rssi_buf[MAX_RSSI_NO]; 
 }__attribute__((packed));
 
-typedef struct ret_byte{
-	char* low;
-	char* high;
-}ret_byte;
-
 
 int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, g_RegDev_para* g_RegDev, zlog_category_t* handler);
 int broker_register_callback_interface(g_broker_para* g_broker);
@@ -63,9 +60,8 @@ void destoryBroker(g_broker_para* g_broker);
 
 int inquiry_system_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
 int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
-int inquiry_dac_state();
 
-
+/* rssi */
 void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker);
 int open_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external
 int close_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external 

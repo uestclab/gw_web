@@ -52,7 +52,25 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
         postMsg(MSG_CLOSE_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLEAR_LOG){ // clear log
         postMsg(MSG_CLEAR_LOG, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
-    }  
+    }else if(type == TYPE_RESET){ // reset board
+        postMsg(MSG_RESET_SYSTEM, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_STATISTICS_INFO){ // request eth and link info
+        postMsg(MSG_INQUIRY_STATISTICS, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_IP_SETTING){ // set ip
+        postMsg(MSG_IP_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_RF_INFO){ // request RF info
+        postMsg(MSG_INQUIRY_RF_INFO, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_RF_FREQ_SETTING){
+        postMsg(MSG_RF_FREQ_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_TX_POWER){
+        postMsg(MSG_OPEN_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_TX_POWER){
+        postMsg(MSG_CLOSE_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_RX_GAIN){
+        postMsg(MSG_OPEN_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_RX_GAIN){
+        postMsg(MSG_CLOSE_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }
 	return 0;
 }
 
