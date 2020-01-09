@@ -3,7 +3,7 @@
 
 
 
-char* system_state_response(int is_ready, char* fpga_version, char* soft_version, int is_exception, int dac_state, int distance_app_state){
+char* system_state_response(int is_ready, int is_exception, system_state_t* tmp_system_state){
     char* system_state_response_json = NULL;
     if(is_ready == 1){
         cJSON *root = cJSON_CreateObject();
@@ -13,7 +13,7 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
         }else{
             cJSON_AddNumberToObject(root, "type", TYPE_SYSTEM_STATE_EXCEPTION);
         }
-        cJSON_AddNumberToObject(root, "array_number", 5);
+        cJSON_AddNumberToObject(root, "array_number", 8);
 
         cJSON *array=cJSON_CreateArray();
 
@@ -26,26 +26,41 @@ char* system_state_response(int is_ready, char* fpga_version, char* soft_version
         cJSON *obj_fpga=cJSON_CreateObject();
         cJSON_AddStringToObject(obj_fpga, "name","fpga_version");
         cJSON_AddStringToObject(obj_fpga, "data_type","string");
-        assert(fpga_version != NULL);
-        cJSON_AddStringToObject(obj_fpga, "value",fpga_version);
+        assert(tmp_system_state->fpga_version != NULL);
+        cJSON_AddStringToObject(obj_fpga, "value",tmp_system_state->fpga_version);
         cJSON_AddItemToArray(array,obj_fpga);
 
         cJSON *obj_soft=cJSON_CreateObject();
         cJSON_AddStringToObject(obj_soft, "name","soft_version");
         cJSON_AddStringToObject(obj_soft, "data_type","string");
-        assert(soft_version != NULL);
-        cJSON_AddStringToObject(obj_soft, "value",soft_version);
+        assert(tmp_system_state->soft_version != NULL);
+        cJSON_AddStringToObject(obj_soft, "value",tmp_system_state->soft_version);
         cJSON_AddItemToArray(array,obj_soft);
 
         cJSON *obj_dac=cJSON_CreateObject();
         cJSON_AddStringToObject(obj_dac, "name","dac_state");
-        cJSON_AddNumberToObject(obj_dac, "value",dac_state);
+        cJSON_AddNumberToObject(obj_dac, "value",tmp_system_state->dac_state);
         cJSON_AddItemToArray(array,obj_dac);
 
         cJSON *obj_dis_app=cJSON_CreateObject();
         cJSON_AddStringToObject(obj_dis_app, "name","distance_state");
-        cJSON_AddNumberToObject(obj_dis_app, "value",distance_app_state);
+        cJSON_AddNumberToObject(obj_dis_app, "value",tmp_system_state->distance_state);
         cJSON_AddItemToArray(array,obj_dis_app);
+        
+        cJSON *obj_frequency=cJSON_CreateObject();
+        cJSON_AddStringToObject(obj_frequency, "name","frequency");
+        cJSON_AddNumberToObject(obj_frequency, "value",tmp_system_state->frequency);
+        cJSON_AddItemToArray(array,obj_frequency);
+
+        cJSON *obj_txpower=cJSON_CreateObject();
+        cJSON_AddStringToObject(obj_txpower, "name","tx_power");
+        cJSON_AddNumberToObject(obj_txpower, "value",tmp_system_state->tx_power_state);
+        cJSON_AddItemToArray(array,obj_txpower);
+
+        cJSON *obj_rxgain=cJSON_CreateObject();
+        cJSON_AddStringToObject(obj_rxgain, "name","rx_gain");
+        cJSON_AddNumberToObject(obj_rxgain, "value",tmp_system_state->rx_gain_state);
+        cJSON_AddItemToArray(array,obj_rxgain);
 
         cJSON_AddItemToObject(root,"ret_value",array);
         system_state_response_json = cJSON_Print(root);

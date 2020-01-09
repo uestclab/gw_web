@@ -277,9 +277,9 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
     }
 
-    // if(TYPE_SYSTEM_STATE_RESPONSE == type){
-    //     zlog_info(g_receive->log_handler, "system state json : %s ", buf);
-    // }
+    if(TYPE_SYSTEM_STATE_RESPONSE == type){
+        zlog_info(g_receive->log_handler, "system state json : %s ", buf);
+    }
 
     pthread_mutex_unlock(&(g_receive->send_mutex));
     return ret;

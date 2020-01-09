@@ -77,7 +77,9 @@ void print_log(auto_log_item *item, LogCollector* logc){
             break;
         }
     }
-    free(item->buf);
+    if(item->buf!=NULL){
+        free(item->buf);
+    }
     free(item);
 }
 
@@ -149,7 +151,11 @@ int auto_save_data_log(LogCollector* logc, void* data, queue_item_type type){
 int auto_save_alarm_log(LogCollector* logc, char* data, int data_len, queue_item_type type){
     auto_log_item* item = (auto_log_item*)malloc(sizeof(auto_log_item));
     item->type = type;
-    item->buf = data;
+    item->buf = NULL;
+    if(data_len!=0){
+        item->buf = malloc(data_len);
+        memcpy(item->buf,data,data_len);
+    }
 
     if (tiny_queue_push(logc->queue, item) != 0){
 		free(item);

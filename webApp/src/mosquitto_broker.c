@@ -38,6 +38,39 @@ rssi_user_node* findNode(int connfd, g_broker_para* g_broker){
 	return pnode;
 }
 
+system_state_t* get_system_state(g_broker_para* g_broker, char* system_str, int ready){
+	system_state_t* tmp = (system_state_t*)malloc(sizeof(system_state_t));
+	tmp->system_str = NULL;
+	if(system_str != NULL){
+		tmp->system_str = malloc(strlen(system_str)+1);
+		memcpy(tmp->system_str,system_str,strlen(system_str)+1);
+	}
+	if(ready == 1){
+		tmp->soft_version = c_compiler_builtin_macro();
+		uint32_t value = get_fpga_version(g_broker->g_RegDev);
+		tmp->fpga_version = parse_fpga_version(value);
+		tmp->dac_state = inquiry_dac_state();
+		tmp->distance_state = IsProcessIsRun("distance_main");
+		tmp->frequency = 77575;
+		tmp->tx_power_state = 1;
+		tmp->rx_gain_state = 0;
+	}
+	return tmp;
+}
+
+void clear_system_state(system_state_t* tmp){
+	if(tmp->system_str != NULL){
+		free(tmp->system_str);
+	}
+	if(tmp->fpga_version != NULL){
+		free(tmp->fpga_version);
+	}
+	if(tmp->soft_version != NULL){
+		free(tmp->soft_version);
+	}
+	free(tmp);
+}
+
 /* ----------------------- auto log -------------------------------- */
 void my_log_data(double rssi_data, g_broker_para* g_broker){
 	/* snr */
@@ -120,33 +153,33 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
     cJSON * item = NULL;
     root = cJSON_Parse(stat_buf);
     item = cJSON_GetObjectItem(root,"stat");
+	int is_exception = 1;
 	if(strcmp(item->valuestring,"0x20") == 0 || strcmp(item->valuestring,"0x80000020") == 0){
 		if(g_broker->system_ready == 0){
 			g_broker->system_ready = 1;
-            char* soft_version = c_compiler_builtin_macro();
-            uint32_t value = get_fpga_version(g_broker->g_RegDev);
-            char* fpga_version = parse_fpga_version(value);
-			int dac_state = inquiry_dac_state();
-			int distance_app_state = IsProcessIsRun("distance_main");
-			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,1,dac_state,distance_app_state);
+			system_state_t* state = get_system_state(g_broker,NULL,g_broker->system_ready);
+			char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
 
 			struct user_session_node *pnode = NULL;
 			list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
 				if(pnode->g_receive != NULL){    
-					assemble_frame_and_send(pnode->g_receive,system_state_response_json,strlen(system_state_response_json),TYPE_SYSTEM_STATE_EXCEPTION);
+					assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);
 				}
 			}
 
-            free(system_state_response_json);
+            free(response_json);
+			clear_system_state(state);
 		}else{
             ; // do not inform node.js
         }			
 	}else{
 		g_broker->system_ready = 0;
-		char* tmp_str = malloc(256);
+		char tmp_str[256];
 		sprintf(tmp_str, "device is not ready ! %s", item->valuestring);
 		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
-		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1, 0, 0);
+
+		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
+		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
 
 		struct user_session_node *pnode = NULL;
 		list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
@@ -159,6 +192,7 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
 		/* clear and reset system state variable */
 		/* ???????????? */
 		auto_save_alarm_log(&logc, tmp_str, strlen(tmp_str)+1, LOG_RADIO_EXCEPTION);
+		clear_system_state(state);
 	}
 	cJSON_Delete(root);
 }
@@ -182,28 +216,25 @@ void parse_system_state(g_receive_para* tmp_receive, char* stat_buf, int stat_bu
     cJSON * item = NULL;
     root = cJSON_Parse(stat_buf);
     item = cJSON_GetObjectItem(root,"stat");
+	int is_exception = 0;
 	if(strcmp(item->valuestring,"0x20") == 0 || strcmp(item->valuestring,"0x80000020") == 0){
 		g_broker->system_ready = 1;
 		// send frame to node js
-		char* soft_version = c_compiler_builtin_macro();
-		uint32_t value = get_fpga_version(g_broker->g_RegDev);
-		char* fpga_version = parse_fpga_version(value);
-		int dac_state = inquiry_dac_state();
-		int distance_app_state = IsProcessIsRun("distance_main");
-		//zlog_info(g_broker->log_handler,"dac_state : %d ,,, distance_app_state : %d", dac_state, distance_app_state);
-		char* system_state_response_json = system_state_response(g_broker->system_ready,fpga_version,soft_version,0,dac_state,distance_app_state);
-		assemble_frame_and_send(tmp_receive,system_state_response_json,strlen(system_state_response_json),TYPE_SYSTEM_STATE_RESPONSE);
-		free(soft_version);
-		free(fpga_version);
-		free(system_state_response_json);		
+		system_state_t* state = get_system_state(g_broker,NULL,g_broker->system_ready);
+		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
+		assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_RESPONSE);
+		free(response_json);
+		clear_system_state(state);		
 	}else{
 		g_broker->system_ready = 0;
 		char tmp_str[256];
 		sprintf(tmp_str, "device is not ready , SystemState not 0x20 !!! %s \n", item->valuestring);
 		zlog_info(g_broker->log_handler,"other msg : %s ", tmp_str);
-		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 0, 0, 0);
+		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
+		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
 		assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_RESPONSE);
-		free(response_json);	
+		free(response_json);
+		clear_system_state(state);	
 	}
 	cJSON_Delete(root);
     free(stat_buf);
@@ -630,24 +661,21 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 
 /* -----------------------   test   --------------------------------------------- */
 void test_process_exception(int state, g_broker_para* g_broker){
+	int is_exception = 1;
 	if(state == 1){	
 		if(g_broker->system_ready == 0){	
 			g_broker->system_ready = 1;	
-            char* soft_version = c_compiler_builtin_macro();	
-            uint32_t value = get_fpga_version(g_broker->g_RegDev);	
-            char* fpga_version = parse_fpga_version(value);	
-			int dac_state = inquiry_dac_state();
-			int distance_app_state = IsProcessIsRun("distance_main");
-			char* system_state_response_json = system_state_response(g_broker->system_ready, fpga_version, soft_version,1,dac_state,distance_app_state);
-
+			system_state_t* state = get_system_state(g_broker,NULL,g_broker->system_ready);
+			char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
 			struct user_session_node *pnode = NULL;	
 			list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
 				if(pnode->g_receive != NULL){    	
-					assemble_frame_and_send(pnode->g_receive,system_state_response_json,strlen(system_state_response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
+					assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
 				}	
 			}	
 
-            free(system_state_response_json);	
+            free(response_json);
+			clear_system_state(state);	
 		}else{	
             ; // do not inform node.js	
         }				
@@ -655,8 +683,9 @@ void test_process_exception(int state, g_broker_para* g_broker){
 		g_broker->system_ready = 0;	
 		char tmp_str[256];	
 		sprintf(tmp_str, "device is not ready !");	
-		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);	
-		char* response_json = system_state_response(g_broker->system_ready, tmp_str, NULL, 1, 0, 0);	
+		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
+		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
+		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);	
 
 		struct user_session_node *pnode = NULL;	
 		list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
@@ -667,6 +696,6 @@ void test_process_exception(int state, g_broker_para* g_broker){
 		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));	
 		free(response_json);	
 		/* clear and reset system state variable */	
-
+		clear_system_state(state);
 	}	
 } 
