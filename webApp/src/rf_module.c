@@ -4,7 +4,12 @@
 #include "rf_module.h"
 #include "response_json.h"
 
-
+/**@defgroup RF rf_process_module.
+* @{
+* @ingroup rf module
+* @brief 提供射频信息数据. \n
+* 响应设置射频等操作
+*/
 int inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	char* response_json = rf_info_response(g_broker->g_RegDev,g_broker->log_handler);
 	zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
@@ -37,3 +42,5 @@ int rx_gain_normal(){
 int rx_gain_high(){
     return 0;
 }
+
+/** @} RF*/

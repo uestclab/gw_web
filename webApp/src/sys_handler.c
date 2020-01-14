@@ -6,6 +6,12 @@
 #include "sys_handler.h"
 #include "response_json.h"
 
+/**@defgroup System system_process_module.
+* @{
+* @ingroup system module
+* @brief 提供网络统计信息数据. \n
+* 响应网络设置操作
+*/
 /* ---------------------------------- statistics eth and link --------------------------------*/
 int inquiry_statistics(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	char* response_json = statistics_response(g_broker->g_RegDev,g_broker->start_time,g_broker->log_handler);
@@ -27,3 +33,4 @@ int process_ip_setting(char* stat_buf, int stat_buf_len,zlog_category_t* handler
     return 0;
 }
 
+/** @} System*/

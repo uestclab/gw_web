@@ -10,6 +10,12 @@
 #include "msg_queue.h"
 #include "mosquitto_broker.h"
 
+/**@defgroup System system_process_module.
+* @{
+* @ingroup system module
+* @brief 提供网络统计信息数据. \n
+* 响应网络设置操作
+*/
 /* eth and link */
 int inquiry_statistics(g_receive_para* tmp_receive, g_broker_para* g_broker);
 

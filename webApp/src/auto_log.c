@@ -50,13 +50,6 @@ static int write_log (FILE* pFile, const char *format, ...) {
 	return done;
 }
 
-    // LOG_DATA = 1,
-    // LOG_RSSI,
-    // LOG_SNR,
-    // LOG_DISTANCE,
-    // LOG_ALARM_EVENT, // boundary
-    // LOG_HIGH_TEMP,
-    // LOG_RADIO_EXCEPTION,
 
 void print_log(auto_log_item *item, LogCollector* logc){
     switch(item->type){

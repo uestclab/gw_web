@@ -27,17 +27,26 @@ typedef enum queue_item_type{
     LOG_RADIO_EXCEPTION,
 }queue_item_type;
 
+/**@struct log_data_t
+* @brief 定义后台自主log数据类型
+*/
 typedef struct log_data_t{
     double rssi;
     double snr;
     double distance;
 }log_data_t;
 
+/**@struct auto_log_item
+* @brief 定义后台自主log数据交互队列元素
+*/
 typedef struct auto_log_item{
     queue_item_type type;
     char*           buf;
 }auto_log_item;
 
+/**@struct LogCollector
+* @brief 定义自主log依赖资源
+*/
 typedef struct LogCollector{
     zlog_category_t*    handler;
     pthread_t           thread_pid;

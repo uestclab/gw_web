@@ -198,6 +198,14 @@ void* runServer(void* args){
 	}
 }
 
+/**@brief tcp连接管理网络模块
+* @param[in]  g_server              网络连接管理handler
+* @param[in]  g_msg_queue           消息队列handler
+* @param[in]  handler               zlog
+* @return  函数执行结果
+* - 0          上报成功
+* - 非0        上报失败
+*/
 int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, zlog_category_t* handler){
 	zlog_info(handler,"CreateServerThread()");
 	*g_server = (g_server_para*)malloc(sizeof(struct g_server_para));
@@ -282,6 +290,16 @@ void release_receive_resource(g_receive_para* g_receive){
 
 /* ------------------------- send interface-------------------------------- */
 /* all call in event loop may be? */
+
+/**@brief     后端发送消息接口
+* @param[in]  g_receive              对应不同的连接接收handler(前端发送服务请求到后端，该请求对应不同的用户，后端需根据该handler正确回复请求的发起者)
+* @param[in]  buf                    消息buffer
+* @param[in]  buf_len                消息buffer长度（字符串不包括字符串结束符）
+* @param[in]  type                   回复前端消息类型
+* @return  函数执行结果
+* - 0          上报成功
+* - 非0        上报失败
+*/
 int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, int type){
     //zlog_info(g_receive->log_handler," buf : %s",buf);
     int length = buf_len + FRAME_HEAD_ROOM;

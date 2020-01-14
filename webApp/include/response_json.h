@@ -11,6 +11,9 @@
 #include "gw_control.h"
 #include "web_common.h"
 
+/**@struct system_state_t
+* @brief 定义页面每次刷新或打开请求系统信息数据类型
+*/
 typedef struct system_state_t{
     char  system_str[256];
     char* fpga_version;

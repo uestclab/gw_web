@@ -355,6 +355,13 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 }
 
 // ---------- rssi ----------------
+/**@defgroup Rssi rssi_process_module.
+* @{
+* @ingroup rssi module
+* @brief 包括记录外部控制rssi开关. \n
+* 发送rssi数据到前端接口 \n
+* 保存rssi文件写线程与主线程交互流程 
+*/
 
 int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 	zlog_info(g_broker->log_handler,"rssi json = %s \n",buf);
@@ -650,7 +657,7 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 	}
 	pnode->rssi_file_t->enable = 0;
 }
-
+/** @} Rssi*/
 
 
 /* -----------------------   test   --------------------------------------------- */

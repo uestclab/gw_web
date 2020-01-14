@@ -7,6 +7,9 @@
 #include <assert.h>
 #include "tiny_queue.h"
 /* write file */
+/**@struct write_file_t
+* @brief 定义存储文件相关资源
+*/
 typedef struct write_file_t{
 	pthread_mutex_t  	mutex;
 	int             	enable; // produce_enable: 
@@ -15,11 +18,17 @@ typedef struct write_file_t{
 	FILE*          		file;
 }write_file_t;
 
+/**@struct queue_item
+* @brief 定义队列元素
+*/
 typedef struct queue_item{
 	char* buf;
 	int   buf_len;
 }queue_item;
 
+/**@enum msg_event
+* @brief 定义上报事件循环处理消息类型
+*/
 typedef enum msg_event{
 	/* test msg type */
     MSG_NETWORK = 1,
@@ -115,6 +124,9 @@ typedef enum frame_type{
 
 }frame_type;
 
+/**@struct reg_state_t
+* @brief 定义寄存器数据类型
+*/
 typedef struct reg_state_t{
 	int             reg_state_num;
 	unsigned int    power_est_latch;

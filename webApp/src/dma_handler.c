@@ -155,6 +155,14 @@ void close_dma(g_dma_para* g_dma){
 	zlog_info(g_dma->log_handler,"close_dma() \n");
 }
 
+/**@defgroup Csi csi_process_module.
+* @{
+* @ingroup csi module
+* @brief 包括记录外部用户控制csi开关. \n
+* 处理IQ数据，生成频谱数据和时域数据 \n
+* 发送信道估计IQ处理数据到前端接口 \n
+* 保存csi原始文件写线程与主线程交互流程 
+*/
 // internel
 int start_csi(g_dma_para* g_dma){
 	int rc;
@@ -427,9 +435,17 @@ void inform_stop_csi_write_thread(int connfd, g_dma_para* g_dma){
 	}
 	pnode->csi_file_t->enable = 0;
 }
+/** @} Csi*/
 
 /* --------------------------- constellation control func --------------------------------------- */
 // internel
+/**@defgroup Constell constell_process_module.
+* @{
+* @ingroup constell module
+* @brief 包括记录外部用户控制星座图开关. \n
+* 处理IQ数据，生成发送前端交互格式数据 \n
+* 发送数据前端接口
+*/
 int start_constellation(g_dma_para* g_dma){
 	int rc;
 	if(g_dma->p_axidma == NULL){
@@ -525,14 +541,14 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 	}
 
 	free(constell_data_response_json);	
-
 }
-
-
+/** @} Constell*/
 
 /* ---------------------- CSI function ---------------------------- */
-
 // buf_len == 1024 must /* all compare with before log data*/
+/**@defgroup Csi csi_process_module.
+* @{
+	*/
 void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
 
 	memcpy(g_dma->csi_spectrum->buf, buf, buf_len); // buf_len = 1024
@@ -543,9 +559,12 @@ void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
     timeDomainChange(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->time_IQ, 256);
 }
 
+/** @} Csi*/
 
 /* ---------------------- process constellation function ---------------------------- */
-
+/**@defgroup Constell constell_process_module.
+* @{
+	*/
 void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 	g_dma->cons_iq_pair->iq_cnt = 0;
 
@@ -585,3 +604,4 @@ void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 	}
 	g_dma->cons_iq_pair->iq_cnt = iq_cnt;
 }
+/** @} Constell*/

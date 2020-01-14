@@ -11,18 +11,26 @@
 #include "gw_utility.h"
 #include "server.h"
 #include "web_common.h"
-
+/**@struct json_set_para
+* @brief 程序自身读取的json文件对应指针
+*/
 typedef struct json_set_para{
     char*              system_state_json;
     char*              rssi_open_json;
     char*              rssi_close_json;
 }json_set_para;
 
+/**@struct rssi_module_t
+* @brief 定义rssi模块信息
+*/
 typedef struct rssi_module_t{
 	int rssi_state;
 	int user_cnt;
 }rssi_module_t;
 
+/**@struct g_broker_para
+* @brief 定义内部消息队列代理模块依赖资源
+*/
 typedef struct g_broker_para{
     int                system_ready; // device state
 	int64_t            start_time;
@@ -36,6 +44,9 @@ typedef struct g_broker_para{
 	zlog_category_t*   log_handler;
 }g_broker_para;
 
+/**@struct rssi_user_node
+* @brief 定义使用rssi用户节点
+*/
 typedef struct rssi_user_node{
 	g_broker_para*         g_broker;
 	int                    connfd;
@@ -45,6 +56,9 @@ typedef struct rssi_user_node{
 }rssi_user_node;
 
 
+/**@struct rssi_priv
+* @brief 采集rssi数据格式
+*/
 #define	MAX_RSSI_NO	60000
 struct rssi_priv{
 	struct timeval timestamp;
