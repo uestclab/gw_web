@@ -18,6 +18,31 @@ void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_
 	postMsgQueue(&data,g_msg_queue);
 }
 
+unsigned int stringToDecimalInt(char* ret){
+	if(ret == NULL){
+		return -1;
+	}
+	int i;
+	int len = strlen(ret);
+	if(len < 1)
+		return -1;
+	unsigned int number = 0;
+	int flag = 0;
+	for(i=0;i<len;i++){
+		if(ret[i] == '0' && flag == 0)
+			continue;
+		flag = 1;
+		int temp = 0;
+		if(ret[i]>='0'&&ret[i]<='9')
+			temp = ret[i] - '0';
+		if(i == len - 1)
+			number = number + temp;
+		else
+			number = (number + temp)*10;
+	}
+	return number;
+}
+
 unsigned int stringToInt(char* ret){
 	if(ret == NULL){
 		return -1;

@@ -9,6 +9,7 @@
 #include "response_json.h"
 #include "small_utility.h"
 #include "auto_log.h"
+#include "rf_module.h"
 
 g_broker_para* g_broker_temp = NULL;
 
@@ -53,9 +54,9 @@ system_state_t* get_system_state(g_broker_para* g_broker, char* system_str, int 
 		tmp->fpga_version = parse_fpga_version(value);
 		tmp->dac_state = inquiry_dac_state();
 		tmp->distance_state = IsProcessIsRun("distance_main");
-		tmp->frequency = 77575;
-		tmp->tx_power_state = 1;
-		tmp->rx_gain_state = 0;
+		tmp->frequency = frequency_rf;
+		tmp->tx_power_state = tx_power_state;
+		tmp->rx_gain_state = rx_gain_state;
 	}
 	return tmp;
 }
@@ -108,7 +109,10 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
     (*g_broker)->system_ready      = 0;
     (*g_broker)->g_RegDev          = g_RegDev;
 	(*g_broker)->enableCallback    = 0;
-	(*g_broker)->start_time        = now();
+
+	struct timeval tv;
+  	gettimeofday(&tv, NULL);
+	(*g_broker)->start_time        = tv.tv_sec;
 
 	INIT_LIST_HEAD(&((*g_broker)->rssi_user_node_head));
 	(*g_broker)->rssi_module.rssi_state = 0;
@@ -132,6 +136,11 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 
 	g_broker_temp = *g_broker;
 	zlog_info(handler,"end createBroker()\n");
+	// self test code 
+	frequency_rf = 757555;
+	tx_power_state = 0;
+	rx_gain_state = 0;
+
 	return 0;
 }
 

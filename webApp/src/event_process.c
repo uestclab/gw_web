@@ -434,6 +434,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_IP_SETTING: msg_number = %d",getData->msg_number);
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				int ret = process_ip_setting(getData->msg_json, getData->msg_len,g_broker->log_handler);
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_INQUIRY_RF_INFO:
@@ -451,22 +452,34 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			}
 			case MSG_OPEN_TX_POWER:
 			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_TX_POWER: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				int ret = open_tx_power();
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_CLOSE_TX_POWER:
 			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_TX_POWER: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				int ret = close_tx_power();
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_OPEN_RX_GAIN:
 			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_RX_GAIN: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				int ret = rx_gain_high();
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_CLOSE_RX_GAIN:
 			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_RX_GAIN: msg_number = %d",getData->msg_number);
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				int ret = rx_gain_normal();
+				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			default:

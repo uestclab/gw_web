@@ -20,6 +20,7 @@
 void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue);
 char* c_compiler_builtin_macro();
 
+unsigned int stringToDecimalInt(char* ret);
 unsigned int stringToInt(char* ret);
 char* parse_fpga_version(uint32_t number);
 

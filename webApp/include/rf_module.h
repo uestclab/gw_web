@@ -15,6 +15,10 @@ typedef struct ret_byte{
 	char* high;
 }ret_byte;
 
+extern int frequency_rf;
+extern int tx_power_state;
+extern int rx_gain_state;
+
 /* rf */
 int inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker);
 int process_rf_freq_setting(char* stat_buf, int stat_buf_len, g_broker_para* g_broker);

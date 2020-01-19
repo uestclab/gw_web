@@ -1,6 +1,7 @@
 #include <assert.h>
 #include "response_json.h"
 #include "small_utility.h"
+#include "rf_module.h"
 
 
 
@@ -427,8 +428,11 @@ char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t*
 
     obj_1=cJSON_CreateObject();
     cJSON_AddStringToObject(obj_1, "name","acc_seconds");
-	int64_t end = now();
-	double acc_sec = (end-start)/1000000.0;
+    struct timeval tv;
+  	gettimeofday(&tv, NULL);
+	int64_t end = tv.tv_sec;
+	double acc_sec = end-start;
+    //zlog_info(handler, "start = %lld , end = %lld , acc_sec = %lf \n", start, end, acc_sec);
     cJSON_AddNumberToObject(obj_1, "value",acc_sec);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
@@ -451,25 +455,25 @@ char* rf_info_response(g_RegDev_para* g_RegDev,zlog_category_t* handler){
     cJSON *array=cJSON_CreateArray();
     cJSON *obj_1=cJSON_CreateObject();
     cJSON_AddStringToObject(obj_1, "name","frequency");
-    cJSON_AddNumberToObject(obj_1, "value",75535);
+    cJSON_AddNumberToObject(obj_1, "value",frequency_rf);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
     obj_1=cJSON_CreateObject();
     cJSON_AddStringToObject(obj_1, "name","power");
-    cJSON_AddNumberToObject(obj_1, "value",100);
+    cJSON_AddNumberToObject(obj_1, "value",getPowerLatch(g_RegDev));
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
     obj_1=cJSON_CreateObject();
     cJSON_AddStringToObject(obj_1, "name","tx_power");
-    cJSON_AddNumberToObject(obj_1, "value",1);
+    cJSON_AddNumberToObject(obj_1, "value",tx_power_state);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
     obj_1=cJSON_CreateObject();
     cJSON_AddStringToObject(obj_1, "name","rx_gain");
-    cJSON_AddNumberToObject(obj_1, "value",1);
+    cJSON_AddNumberToObject(obj_1, "value",rx_gain_state);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
