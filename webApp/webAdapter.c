@@ -1,3 +1,69 @@
+/**@mainpage  gw_web管理程序
+* <table>
+* <tr><th>Project  <td>gw_web 
+* <tr><th>Author   <td>liqing 
+* <tr><th>Source   <td>gitlab
+* </table>
+* @section   项目详细描述
+* Web管理主要用于嵌入式设备状态监测，实现功能包括界面显示，文件下载，后台相关功能进行权限管理。设备上可以查看的设备状态包括基带相关寄存器值，射频以及中频相关寄存器值，信号强度（RSSI）以及信道的频谱和时域表示。 文件存储功能包括RSSI和信道数据的文件存储
+。
+*
+* @section   功能描述  
+* -# 本工程基于arm嵌入式环境开发，前端基于node js开发
+* -# 后端提供数据和操作管理，前端负责展示数据和提供用户交互接口
+* -# 前后端接口交互基于进程间通信
+* 
+* @section   用法描述 
+* -# 网线连接设备，确认连接网口IP信息，例如192.168.10.77
+* -# 浏览器中输入 http://192.168.10.77:32000/，进入设备用户登录界面
+* -# 用户登录界面，输入例如：用户名：admin 密码： 123456
+* 
+* @section   程序更新 
+* <table>
+* <tr><th>Date        <th>H_Version    <th>Author    <th>Description  </tr>
+* <tr><td>2019/11/05  <td>1.0    <td>liqing  <td>创建初始版本 </tr>
+* <tr><td>2019/11/18  <td>1.0    <td>liqing  <td>
+* -# 增加显示寄存器数值，rssi数值功能；
+* -# 新增一次请求对应一个连接
+* </tr>
+* <tr><td>2019/11/21  <td>1.0    <td>liqing  <td>添加MD5sum用于后端在线模拟前端输入 </tr>
+* <tr><td>2019/11/27  <td>1.0    <td>liqing  <td>
+* -# 后端网络层添加user_node_list管理连接用户；
+* -# 不同数据源模块添加如rssi_node_list用于管理访问该模块用户
+* -# 后端支持多用户访问
+</tr>
+* <tr><td>2019/12/02  <td>1.0    <td>liqing  <td>添加保存rssi文件 </tr>
+* <tr><td>2019/12/12  <td>1.0    <td>liqing  <td>
+* -# 添加信道估计显示数据处理，保存
+* -# 添加星座图显示数据处理  
+</tr>
+* <tr><td>2020/01/07  <td>1.0    <td>liqing  <td>
+* -# 添加射频信息，网络统计信息显示
+* -# 添加控制设备dac，配置ip，控制射频等写设备接口 
+</tr>
+* </table>
+**********************************************************************************
+*/
+
+/**@file  main.c
+* @brief       主函数文件
+* @details  主要包含各个模块初始化，事件调度循环初始化，main函数入口
+* @author      liqing
+* @date        2019-11-07
+* @version     V1.0
+* @copyright    Copyright (c) 2019-2020  成都吉纬科技有限公司
+**********************************************************************************
+* @attention
+* 硬件平台:GW45 GW50
+* @par 修改日志:
+* <table>
+* <tr><th>Date        <th>Version  <th>Author    <th>Description
+* <tr><td>2019/11/07  <td>1.0      <td>liqing  <td>init version
+* </table>
+*
+**********************************************************************************
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +75,11 @@
 
 #include "msg_queue.h"
 #include "event_process.h"
+#include "mosquitto_broker.h"
+#include "dma_handler.h"
+#include "gw_control.h"
+#include "ThreadPool.h"
+#include "web_common.h"
 
 
 zlog_category_t * serverLog(const char* path){
@@ -38,42 +109,71 @@ void closeServerLog(){
 	zlog_fini();
 }
 
-void c_compiler_builtin_macro(zlog_category_t* zlog_handler)
-{
-	zlog_info(zlog_handler,"gcc compiler ver:%s\n",__VERSION__);
-	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
-	//printf("gcc compiler ver:%s\n",__VERSION__);
-	//printf("this version built time is:[%s  %s]\n",__DATE__,__TIME__);
+void check_assert(){
+	assert(sizeof (uint32_t) == 4);
+	printf("uint32_t : %d , uint64_t : %d \n", sizeof(uint32_t),sizeof(u_int64_t));
+	printf("gw_web version built time is:[%s  %s]\n",__DATE__,__TIME__);
 }
 
 int main(int argc,char** argv)
 {
+
+	check_assert();
+
 	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
-	//zlog_category_t *zlog_handler = serverLog("./zlog_default.conf");
 
 	zlog_info(zlog_handler,"start webAdapter process\n");
 
-	c_compiler_builtin_macro(zlog_handler);
+	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
 	
 	/* msg_queue */
-	const char* pro_path = "/tmp/handover_test/";
-	int proj_id = 'w';
+	const char* pro_path = "/tmp/web/";
+	int proj_id = 0x4;
 	g_msg_queue_para* g_msg_queue = createMsgQueue(pro_path, proj_id, zlog_handler);
 	if(g_msg_queue == NULL){
 		zlog_info(zlog_handler,"No msg_queue created \n");
 		return 0;
 	}
 	zlog_info(zlog_handler, "g_msg_queue->msgid = %d \n", g_msg_queue->msgid);
+	int state = clearMsgQueue(g_msg_queue);
+
+	/* reg dev */
+	g_RegDev_para* g_RegDev = NULL;
+	state = initRegdev(&g_RegDev, zlog_handler);
+	if(state != 0 ){
+		zlog_info(zlog_handler,"initRegdev create failed !");
+		return 0;
+	}
 
 	/* server thread */
 	g_server_para* g_server = NULL;
-	int state = CreateServerThread(&g_server, g_msg_queue, zlog_handler);
+	state = CreateServerThread(&g_server, g_msg_queue, zlog_handler);
 	if(state == -1 || g_server == NULL){
 		zlog_info(zlog_handler,"No server thread created \n");
 		return 0;
 	}
 
-	eventLoop(g_server, g_msg_queue, zlog_handler);
+	/* broker handler */
+	g_broker_para* g_broker = NULL;
+	state = createBroker(argv[0], &g_broker, g_server, g_RegDev, zlog_handler);
+	if(state != 0 || g_server == NULL){
+		zlog_info(zlog_handler,"No Broker created \n");
+		return 0;
+	}
+
+	/* dma handler */
+	g_dma_para* g_dma = NULL;
+	state = create_dma_handler(&g_dma, g_server, zlog_handler);
+	if(state != 0){
+		zlog_info(zlog_handler,"No dma handler created !\n");
+		return 0;
+	}
+
+	/* ThreadPool handler */
+	ThreadPool* g_threadpool = NULL;
+	createThreadPool(128, 4, &g_threadpool,zlog_handler);
+
+	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, zlog_handler);
 
 	closeServerLog();
     return 0;

@@ -15,17 +15,129 @@
 #include "cJSON.h"
 #include "web_common.h"
 #include "gw_macros_util.h"
+#include "small_utility.h"
 
-#define BUFFER_SIZE 2560*4
+#define BUFFER_SIZE 1024 * 40
 
-void postMsg(long int msg_type, char *buf, int buf_len, g_msg_queue_para* g_msg_queue){
-	struct msg_st data;
-	data.msg_type = msg_type;
-	data.msg_number = msg_type;
-	data.msg_len = buf_len;
-	if(buf != NULL && buf_len != 0)
-		memcpy(data.msg_json,buf,buf_len);
-	postMsgQueue(&data,g_msg_queue);
+int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
+	int type = myNtohl(buf + 4);
+	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
+	if(type == TYPE_SYSTEM_STATE_REQUEST){
+		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_REG_STATE_REQUEST){ // json
+		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
+		postMsg(MSG_INQUIRY_RSSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
+		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_START_CSI){ // start csi 
+		postMsg(MSG_START_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_STOP_CSI){ // stop csi
+		postMsg(MSG_STOP_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_CONTROL_SAVE_CSI){ // save csi data or not
+		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_START_CONSTELLATION){ // start constellation
+		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
+		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == 22){ // rf_mf_state
+		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
+	}else if(type == TYPE_OPEN_DISTANCE_APP){ // open distance app
+        postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_DISTANCE_APP){ // close distance app
+        postMsg(MSG_CLOSE_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_DAC){ // open dac
+        postMsg(MSG_OPEN_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_DAC){ // close dac
+        postMsg(MSG_CLOSE_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLEAR_LOG){ // clear log
+        postMsg(MSG_CLEAR_LOG, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_RESET){ // reset board
+        postMsg(MSG_RESET_SYSTEM, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_STATISTICS_INFO){ // request eth and link info
+        postMsg(MSG_INQUIRY_STATISTICS, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_IP_SETTING){ // set ip
+        postMsg(MSG_IP_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_RF_INFO){ // request RF info
+        postMsg(MSG_INQUIRY_RF_INFO, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_RF_FREQ_SETTING){
+        postMsg(MSG_RF_FREQ_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_TX_POWER){
+        postMsg(MSG_OPEN_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_TX_POWER){
+        postMsg(MSG_CLOSE_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_OPEN_RX_GAIN){
+        postMsg(MSG_OPEN_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }else if(type == TYPE_CLOSE_RX_GAIN){
+        postMsg(MSG_CLOSE_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    }
+	return 0;
+}
+
+void receive(g_receive_para* g_receive){
+    int size = 0;
+    int totalByte = 0;
+    int msg_len = 0;
+    char* temp_receBuffer = g_receive->recvbuf + 2000; //
+    char* pStart = NULL;
+    char* pCopy = NULL;
+
+    size = recv(g_receive->connfd, temp_receBuffer, BUFFER_SIZE,0);
+    if(size<=0){
+		if(size < 0)
+			zlog_info(g_receive->log_handler,"recv() size < 0 , size = %d \n" , size);
+		if(size == 0)
+			zlog_info(g_receive->log_handler,"recv() size = 0\n");
+        zlog_info(g_receive->log_handler,"errno = %d ", errno);
+        /* check disconnection */
+        if(errno != EINTR){
+            zlog_info(g_receive->log_handler," need post msg to inform ");
+            g_receive->working = 0;
+        } 
+
+		return;
+    }
+
+    pStart = temp_receBuffer - g_receive->moreData;
+    totalByte = size + g_receive->moreData;
+    const int MinHeaderLen = sizeof(int32_t);
+    while(1){
+        if(totalByte <= MinHeaderLen)
+        {
+            g_receive->moreData = totalByte;
+            pCopy = pStart;
+            if(g_receive->moreData > 0)
+            {
+                memcpy(temp_receBuffer - g_receive->moreData, pCopy, g_receive->moreData);
+            }
+            break;
+        }
+        if(totalByte > MinHeaderLen)
+        {
+            msg_len= myNtohl(pStart);
+	
+            if(totalByte < msg_len + MinHeaderLen )
+            {
+                g_receive->moreData = totalByte;
+                pCopy = pStart;
+                if(g_receive->moreData > 0){
+                    memcpy(temp_receBuffer - g_receive->moreData, pCopy, g_receive->moreData);
+                }
+                break;
+            } 
+            else// at least one message 
+            {
+				int ret = processMessage(pStart,msg_len,g_receive);
+				// move to next message
+                pStart = pStart + msg_len + MinHeaderLen;
+                totalByte = totalByte - msg_len - MinHeaderLen;
+                if(totalByte == 0){
+                    g_receive->moreData = 0;
+                    break;
+                }
+            }          
+        }
+    }	
 }
 
 void* receive_thread(void* args){
@@ -34,36 +146,17 @@ void* receive_thread(void* args){
 
 	g_receive_para* g_receive = (g_receive_para*)args;
 
-	g_server_para* g_server = NULL;	
-	g_server = container_of(g_receive, g_server_para, g_receive_var);
-
 	zlog_info(g_receive->log_handler,"start receive_thread()\n");
-    while(1){
-    	//receive(g_receive);
-		cJSON* root = cJSON_CreateObject();
-		g_server->send_rssi = g_server->send_rssi + 1;
-		cJSON_AddNumberToObject(root, "rssi", g_server->send_rssi);
-		char* json_buf = cJSON_Print(root);
-		cJSON_Delete(root);
-		int ret = send(g_receive->connfd,json_buf,strlen(json_buf),0);
-		if(ret != strlen(json_buf)){
-			zlog_info(g_receive->log_handler," send error :  ret = %d , expect_len = %d \n", ret, strlen(json_buf));
-		}
-		free(json_buf);
-		break;
-		char recv_buf[1024];
-		ret = recv(g_receive->connfd, recv_buf, 1024,0);
-		if(ret > 0){
-			zlog_info(g_receive->log_handler, "recv_buf : %s " , recv_buf);
-		}
-		zlog_info(g_receive->log_handler," recv thread is running \n");
-		sleep(1);
+    while(g_receive->working == 1){ /* if disconnected , exit receive thread */
+    	receive(g_receive);
     }
-	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
+
+	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
     zlog_info(g_receive->log_handler,"end Exit receive_thread()\n");
 }
 
 void* runServer(void* args){
+	pthread_detach(pthread_self());
 	g_server_para* g_server = (g_server_para*)args;
 
     struct sockaddr_in servaddr; 
@@ -85,7 +178,7 @@ void* runServer(void* args){
         zlog_error(g_server->log_handler,"bind socket error: %s(errno: %d)\n",strerror(errno),errno);
     }
  
-    if( listen(g_server->listenfd,10) == -1)
+    if( listen(g_server->listenfd,16) == -1) // max number of user in same time
     {
         zlog_error(g_server->log_handler,"listen socket error: %s(errno: %d)\n",strerror(errno),errno);
     }
@@ -97,23 +190,32 @@ void* runServer(void* args){
 		    zlog_error(g_server->log_handler,"accept socket error: %s(errno: %d)\n",strerror(errno),errno);
 		}else{
 			zlog_info(g_server->log_handler," -------------------accept new client , connfd = %d \n", connfd);
-
-			postMsg(MSG_ACCEPT_NEW_USER,(char*)(&connfd),sizeof(int),g_server->g_msg_queue);
+            int* buf = (int*)malloc(sizeof(int));
+            *buf = connfd;
+			postMsg(MSG_ACCEPT_NEW_USER,NULL,0,buf,0,g_server->g_msg_queue);
 		}
 		zlog_info(g_server->log_handler,"========waiting for client's request========\n");
 	}
 }
 
+/**@brief tcp连接管理网络模块
+* @param[in]  g_server              网络连接管理handler
+* @param[in]  g_msg_queue           消息队列handler
+* @param[in]  handler               zlog
+* @return  函数执行结果
+* - 0          上报成功
+* - 非0        上报失败
+*/
 int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, zlog_category_t* handler){
 	zlog_info(handler,"CreateServerThread()");
 	*g_server = (g_server_para*)malloc(sizeof(struct g_server_para));
     (*g_server)->listenfd     = 0;    
 	(*g_server)->para_t       = newThreadPara();
 	(*g_server)->g_msg_queue  = g_msg_queue;
-	(*g_server)->has_user     = 0;
-	//(*g_server)->g_receive    = NULL;
 	(*g_server)->log_handler  = handler;
-	(*g_server)->send_rssi    = 0;
+
+    INIT_LIST_HEAD(&((*g_server)->user_session_node_head));
+	(*g_server)->user_session_cnt    = 0;
 	int ret = pthread_create((*g_server)->para_t->thread_pid, NULL, runServer, (void*)(*g_server));
     if(ret != 0){
         zlog_error(handler,"create CreateServerThread error ! error_code = %d", ret);
@@ -122,13 +224,18 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	return 0;
 }
 
+/*  MSG_ACCEPT_NEW_USER call in event loop */
 int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int connfd, zlog_category_t* handler){
 	zlog_info(handler,"CreateRecvThread()");
-	//g_receive = (g_receive_para*)malloc(sizeof(struct g_receive_para));
 	g_receive->g_msg_queue     = g_msg_queue;
 	g_receive->para_t          = newThreadPara();
 	g_receive->connfd          = connfd;                     // connfd
 	g_receive->log_handler 	   = handler;
+	g_receive->moreData        = 0;
+    g_receive->recvbuf         = (char*)malloc(BUFFER_SIZE);
+    g_receive->sendbuf         = (char*)malloc(BUFFER_SIZE);
+    pthread_mutex_init(&(g_receive->send_mutex),NULL);
+    g_receive->working         = 1;
 
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){
@@ -138,13 +245,81 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 	return 0;
 }
 
+/* ------------------------- user session --------------------------------- */
+user_session_node* new_user_node(g_server_para* g_server){
+    user_session_node* new_node = (user_session_node*)malloc(sizeof(user_session_node));
+    new_node->g_receive = (g_receive_para*)malloc(sizeof(g_receive_para));
+    new_node->record_action = (record_action_t*)malloc(sizeof(record_action_t));
+
+    new_node->record_action->enable_rssi = 0;
+    new_node->record_action->enable_rssi_save = 0;
+
+    new_node->record_action->enable_start_csi = 0;
+    new_node->record_action->enable_csi_save = 0;
+
+    new_node->record_action->enable_start_constell = 0;
+
+    list_add_tail(&new_node->list, &g_server->user_session_node_head);
+    g_server->user_session_cnt++;
+
+    return new_node;
+}
+
+user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){ // may not find the node ?
+    struct list_head *pos, *n;
+    struct user_session_node *pnode = NULL;
+    list_for_each_safe(pos, n, &g_server->user_session_node_head){
+        pnode = list_entry(pos, struct user_session_node, list);
+        if(pnode->g_receive->connfd == connfd){
+            zlog_info(g_server->log_handler,"find node in del_user_node_in_list() ! connfd = %d", connfd);
+            list_del(pos);
+            g_server->user_session_cnt--;
+            break;
+        }
+    }
+    return pnode;
+}
+
+void release_receive_resource(g_receive_para* g_receive){
+    close(g_receive->connfd);
+    destoryThreadPara(g_receive->para_t);
+    free(g_receive->sendbuf);
+    free(g_receive->recvbuf);
+}
 
 
+/* ------------------------- send interface-------------------------------- */
+/* all call in event loop may be? */
 
+/**@brief     后端发送消息接口
+* @param[in]  g_receive              对应不同的连接接收handler(前端发送服务请求到后端，该请求对应不同的用户，后端需根据该handler正确回复请求的发起者)
+* @param[in]  buf                    消息buffer
+* @param[in]  buf_len                消息buffer长度（字符串不包括字符串结束符）
+* @param[in]  type                   回复前端消息类型
+* @return  函数执行结果
+* - 0          上报成功
+* - 非0        上报失败
+*/
+int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, int type){
+    //zlog_info(g_receive->log_handler," buf : %s",buf);
+    int length = buf_len + FRAME_HEAD_ROOM;
+    pthread_mutex_lock(&(g_receive->send_mutex));
+    char* temp_buf = g_receive->sendbuf;
+    *((int32_t*)temp_buf) = htonl(buf_len + sizeof(int32_t));
+    *((int32_t*)(temp_buf + sizeof(int32_t))) = htonl(type);
+    memcpy(temp_buf + FRAME_HEAD_ROOM,buf,buf_len);
+    int ret = send(g_receive->connfd, temp_buf, length, type);
+    if(ret != length){
+        zlog_info(g_receive->log_handler,"ret = %d" , ret);
+    }
 
+    if(TYPE_SYSTEM_STATE_RESPONSE == type){
+        zlog_info(g_receive->log_handler, "system state json : %s ", buf);
+    }
 
-
-
+    pthread_mutex_unlock(&(g_receive->send_mutex));
+    return ret;
+}
 
 
 
