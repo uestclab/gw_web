@@ -37,6 +37,18 @@ int checkIQ(char input);
 
 int IsProcessIsRun(char *proc);
 
+/* i2c interface */
+int i2cset(const char* dev, const char* addr, const char* reg, int size, const char* data);
+char* i2cget(const char* dev, const char* addr, const char* reg, int size);
+
+double calculateDeviceTemp(char* ret);
+double calculate_rf_cur(char* rfcur_low,char* rfcur_high);
+double calculate_local_oscillator_lock(char* rfcur_low,char* rfcur_high);
+double calculate_rf_temper(char* rfcur_low,char* rfcur_high);
+double calculateBBCurrent(char* ret);
+double calculateBBVs(char* ret);
+double calculateADCTemper(char* ret);
+
 #ifdef __cplusplus
     }
 #endif

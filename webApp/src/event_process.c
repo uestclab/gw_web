@@ -11,14 +11,7 @@
 #include "md5sum.h"
 
 void* inquiry_reg_state_loop(void* args){
-	g_receive_para* tmp_receive = (g_receive_para*)args;
-	sleep(1);
-	struct msg_st data;
-	data.msg_type = MSG_INQUIRY_REG_STATE;
-	data.msg_number = MSG_INQUIRY_REG_STATE;
-	data.tmp_data = tmp_receive;
-	data.msg_len = 0;
-	postMsgQueue(&data,tmp_receive->g_msg_queue);
+	;
 }
 
 void postTmpWorkToThreadPool(g_receive_para* tmp_receive, ThreadPool* g_threadpool){

@@ -477,9 +477,58 @@ char* rf_info_response(g_RegDev_para* g_RegDev,zlog_category_t* handler){
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","local_lock_state");
+    cJSON_AddNumberToObject(obj_1, "value",get_local_oscillator_lock_state(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rf_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_rf_temper());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rf_current");
+    cJSON_AddNumberToObject(obj_1, "value",get_rf_current(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","bb_current");
+    cJSON_AddNumberToObject(obj_1, "value",get_bb_current());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","device_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_device_temper(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","bb_vs");
+    cJSON_AddNumberToObject(obj_1, "value",get_bb_vs());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","adc_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_adc_temper());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","zynq_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_zynq_temper(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
     cJSON_AddNumberToObject(root, "array_number", arry_num);
     cJSON_AddItemToObject(root,"ret_value",array);
     response_json = cJSON_Print(root);
     cJSON_Delete(root);
     return response_json;   
 }
+

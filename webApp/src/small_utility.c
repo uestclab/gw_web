@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include "cJSON.h"
+#include "broker.h"
 
 void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue){
 	struct msg_st data;
@@ -328,10 +329,7 @@ int IsProcessIsRun(char *proc)
 	return count;
 }
 
-
-
 /* --- tmp ---- */
-
 /* i2c interface */
 int i2cset(const char* dev, const char* addr, const char* reg, int size, const char* data){
 	int     ret = -1;
@@ -366,7 +364,7 @@ int i2cset(const char* dev, const char* addr, const char* reg, int size, const c
 
 	jsonfile = cJSON_Print(root);
 	item = cJSON_GetObjectItem(root,"dst");
-	//ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
+	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
 
 	cJSON_Delete(root);
 	root = NULL;
@@ -420,7 +418,7 @@ char* i2cget(const char* dev, const char* addr, const char* reg, int size){
 
 	jsonfile = cJSON_Print(root);
 	item = cJSON_GetObjectItem(root,"dst");
-	//ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
+	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
 
 	cJSON_Delete(root);
 	root = NULL;
@@ -456,4 +454,103 @@ char* i2cget(const char* dev, const char* addr, const char* reg, int size){
 	}
 	
 	return ret_return;
+}
+
+/* ------------------- process i2c result ------------------------ */
+//此处会得到两个字节的结果，取高10bit；注意该结果高8位先出，低8位后出
+double calculateDeviceTemp(char* ret){
+	double result = 0;
+	double result_f = 0;
+	int str_len = strlen(ret);
+	char* tmp = malloc(str_len + 1);
+	memcpy(tmp,ret,str_len+1);
+	if(str_len == 6){
+		if(tmp[2] == '4')
+			result_f = 0.25;
+		else if(tmp[2] == 'c')
+			result_f = 0.75;
+		else if(tmp[2] == '8')
+			result_f = 0.5;
+		tmp[2] = '0';
+		tmp[3] = '0';
+	}
+	unsigned int result_int = stringToInt(tmp);
+	result = result_int + result_f;
+	return result;
+}
+
+double calculateBBCurrent(char* ret){
+	double result = 0;
+	double result_f = 0;
+	int str_len = strlen(ret);
+	char* tmp = malloc(str_len + 1);
+	memcpy(tmp,ret,str_len+1);
+	if(str_len == 6){
+		if(tmp[2] == '4')
+			result_f = 0.25;
+		else if(tmp[2] == 'c')
+			result_f = 0.75;
+		else if(tmp[2] == '8')
+			result_f = 0.5;
+		tmp[2] = '0';
+		tmp[3] = '0';
+	}
+	unsigned int result_int = stringToInt(tmp);
+	result = result_int + result_f;
+	return result;
+}
+
+double calculateBBVs(char* ret){
+	;
+}
+
+double calculateADCTemper(char* ret){
+	;
+}
+
+/* ---------------------------------- low and high ------------------------- */
+
+//    i2cget -y -f 0 0x48 0x09     //MSB    高8位
+//    i2cget -y -f 0 0x48 0x04     //Bit[3:2]作为低2位
+double calculate_rf_cur(char* rfcur_low,char* rfcur_high){
+	double result = 0;
+	unsigned int low_int = 0;
+	unsigned int high_int = stringToInt(rfcur_high) * 4;
+	if(rfcur_low[2] == '1')
+		low_int = 1;
+	else if(rfcur_low[2] == '2')
+		low_int = 2;
+	else if(rfcur_low[2] == '3')
+		low_int = 3;
+	
+	result = (high_int + low_int) * 5.0 / 1024;
+	return result;
+}
+
+// //bit8 ~ bit25
+// unsigned int length = frame_control & (0x3ffff<<8);
+// length = length>>8;
+double calculate_local_oscillator_lock(char* rfcur_low,char* rfcur_high){
+	double result = 0;
+	unsigned int low_int = 0;
+	unsigned int high_int = stringToInt(rfcur_high) * 4;
+
+	unsigned int tmp = stringToInt(rfcur_low);
+	low_int = tmp & (0x3);
+	result = (high_int + low_int) * 5.0 / 1024;
+	return result;
+}
+
+
+// //Bit[7:6]作为低2位
+double calculate_rf_temper(char* rfcur_low,char* rfcur_high){
+	double result = 0;
+	unsigned int low_int = 0;
+	unsigned int high_int = stringToInt(rfcur_high) * 4;
+
+	unsigned int tmp = stringToInt(rfcur_low);
+	low_int = tmp & (0x3<<6);
+	low_int = low_int >> 6;
+	result = (high_int + low_int) * 5.0 / 1024;
+	return result;
 }

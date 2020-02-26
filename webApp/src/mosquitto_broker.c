@@ -136,10 +136,20 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 
 	g_broker_temp = *g_broker;
 	zlog_info(handler,"end createBroker()\n");
-	// self test code 
+	// self test code 20200225 add new
 	frequency_rf = 757555;
 	tx_power_state = 0;
 	rx_gain_state = 0;
+
+	local_oscillator_lock_state = 1;
+	rf_temper = 50.6;
+	rf_current = 2.5;
+
+	bb_current = 1.85;
+	device_temper = 52.78;
+	bb_vs = 988.76;
+	adc_temper = 52.90;
+	zynq_temper = 61.5;
 
 	return 0;
 }
