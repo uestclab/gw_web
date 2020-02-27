@@ -31,6 +31,7 @@ typedef struct record_action_t{
 typedef struct g_receive_para{
 	g_msg_queue_para*  g_msg_queue;
 	para_thread*       para_t;
+	pthread_mutex_t    working_mutex;
 	int                working; // check disconnected
 	int                connfd;
 	int                moreData;

@@ -49,8 +49,6 @@ typedef enum msg_event{
 	MSG_RSSI_READY_AND_SEND,
 	MSG_CONTROL_RSSI,
 	MSG_CLEAR_RSSI_WRITE_STATUS,
-	/* RF state request */
-	MSG_INQUIRY_RF_MF_STATE,
 	/* csi and constellation */
 	MSG_START_CSI,
 	MSG_STOP_CSI,
@@ -72,8 +70,11 @@ typedef enum msg_event{
 	MSG_RESET_SYSTEM,
 	MSG_INQUIRY_STATISTICS,
 	MSG_IP_SETTING,
+	/* RF state request */
 	MSG_INQUIRY_RF_INFO,
+	MST_RF_INFO_READY,
 	MSG_RF_FREQ_SETTING,
+	/* SETTING CMD */
 	MSG_OPEN_TX_POWER,
 	MSG_CLOSE_TX_POWER,
 	MSG_OPEN_RX_GAIN,

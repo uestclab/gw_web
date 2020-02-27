@@ -40,8 +40,6 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
 		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
-	}else if(type == 22){ // rf_mf_state
-		postMsg(MSG_INQUIRY_RF_MF_STATE, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_OPEN_DISTANCE_APP){ // open distance app
         postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLOSE_DISTANCE_APP){ // close distance app
@@ -236,7 +234,7 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
     g_receive->sendbuf         = (char*)malloc(BUFFER_SIZE);
     pthread_mutex_init(&(g_receive->send_mutex),NULL);
     g_receive->working         = 1;
-
+    pthread_mutex_init(&(g_receive->working_mutex),NULL);
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){
         zlog_error(handler,"create CreateRecvThread error ! error_code = %d", ret);
@@ -281,12 +279,19 @@ user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){ /
 }
 
 void release_receive_resource(g_receive_para* g_receive){
+    pthread_mutex_destroy(&(g_receive->send_mutex));
+    pthread_mutex_destroy(&(g_receive->working_mutex));
     close(g_receive->connfd);
     destoryThreadPara(g_receive->para_t);
     free(g_receive->sendbuf);
     free(g_receive->recvbuf);
+    free(g_receive);
+    g_receive = NULL;
 }
 
+int checkReceiveWorkingState(g_receive_para* g_receive){
+    return g_receive->working;
+}
 
 /* ------------------------- send interface-------------------------------- */
 /* all call in event loop may be? */
@@ -302,6 +307,13 @@ void release_receive_resource(g_receive_para* g_receive){
 */
 int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, int type){
     //zlog_info(g_receive->log_handler," buf : %s",buf);
+    if(g_receive == NULL){
+        return -99;
+    }
+    if(checkReceiveWorkingState(g_receive) == 0){
+        zlog_info(g_receive->log_handler, "Receive Working State is zero !");
+        return -98;
+    }
     int length = buf_len + FRAME_HEAD_ROOM;
     pthread_mutex_lock(&(g_receive->send_mutex));
     char* temp_buf = g_receive->sendbuf;

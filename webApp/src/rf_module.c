@@ -26,11 +26,9 @@ double zynq_temper;
 * @brief 提供射频信息数据. \n
 * 响应设置射频等操作
 */
-int inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker){
+char* inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	char* response_json = rf_info_response(g_broker->g_RegDev,g_broker->log_handler);
-	//zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
-	assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
-	free(response_json);
+    return response_json;
 }
 
 int process_rf_freq_setting(char* stat_buf, int stat_buf_len, g_broker_para* g_broker){
@@ -82,7 +80,9 @@ double get_local_oscillator_lock_state(zlog_category_t* handler){
 
     double Vadc1 = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
-        Vadc1 = calculate_local_oscillator_lock(p_ret_low, p_ret_high);
+        //Vadc1 = calculate_local_oscillator_lock(p_ret_low, p_ret_high);
+        free(p_ret_low);
+        free(p_ret_high);
     }
     return Vadc1;
 }
@@ -104,7 +104,9 @@ double get_rf_temper(){
 
     double Vadc4 = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
-        Vadc4 = calculate_rf_temper(p_ret_low, p_ret_high);
+    //     Vadc4 = calculate_rf_temper(p_ret_low, p_ret_high);
+        free(p_ret_low);
+        free(p_ret_high);
     }
     return Vadc4;
 }
@@ -127,8 +129,10 @@ double get_rf_current(zlog_category_t* handler){
 
     double rf_current = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
-        rf_current = calculate_rf_cur(p_ret_low, p_ret_high);
-        zlog_info(handler,"rf_current = %d\n", rf_current);
+    //     rf_current = calculate_rf_cur(p_ret_low, p_ret_high);
+    //     zlog_info(handler,"rf_current = %d\n", rf_current);
+        free(p_ret_low);
+        free(p_ret_high);
     }
     return rf_current;
 }
@@ -153,6 +157,7 @@ double get_bb_current(){
         // Vadc1=(ADC Code/1024)*2.5V
         // IS=Vadc1/0.2
         bb_current = calculateBBCurrent(p_ret);
+        free(p_ret);
     }
 
     return bb_current;
@@ -176,6 +181,7 @@ double get_device_temper(zlog_category_t* handler){
         // Negative Temperature = (ADC Code–512)/4
         device_temper = calculateDeviceTemp(p_ret);
         //zlog_info(handler," ---------------- device_temper = %f ",device_temper);
+        free(p_ret);
     }
 
 	return device_temper;
@@ -198,9 +204,10 @@ double get_bb_vs(){
     double bb_vs = -1;
     
     if(p_ret != NULL){
-    // Vadc3=(ADC Code/1024)*2.5V
-    // VS=Vadc3/0.091
-        bb_vs = calculateBBVs(p_ret);
+    // // Vadc3=(ADC Code/1024)*2.5V
+    // // VS=Vadc3/0.091
+    //     bb_vs = calculateBBVs(p_ret);
+        free(p_ret);
     }
 
     return bb_vs;
@@ -223,11 +230,11 @@ double get_adc_temper(){
     double adc_temper = -1;
     
     if(p_ret != NULL){
-    // Vadc4=(ADC Code/1024)*2.5V
-    // TJADC=(0.689-Vadc4)/0.0019
-        adc_temper = calculateADCTemper(p_ret);
+    // // Vadc4=(ADC Code/1024)*2.5V
+    // // TJADC=(0.689-Vadc4)/0.0019
+    //     adc_temper = calculateADCTemper(p_ret);
+        free(p_ret);
     }
-
     return adc_temper;
 }
 
@@ -238,8 +245,8 @@ double get_zynq_temper(zlog_category_t* handler){
   
     pf = popen("xadc", "r");
     fread(buffer, sizeof(buffer), 1, pf);
-  
-    zlog_info(handler, "get_zynq_temper : %s\n", buffer);
+    buffer[32] = '\0';
+    //zlog_info(handler, "get_zynq_temper : %s\n", buffer);
       
     pclose(pf);
 
@@ -278,7 +285,7 @@ double get_zynq_temper(zlog_category_t* handler){
         fraction_d = fraction_d / 10.0;
     }
 
-    zynq_temper = fraction_d;
+    zynq_temper = ((int)(fraction_d * 10000)) / 10000.0;
 
     return zynq_temper;
 }

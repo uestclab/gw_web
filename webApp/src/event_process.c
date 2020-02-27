@@ -5,18 +5,11 @@
 #include "auto_log.h"
 #include "sys_handler.h"
 #include "rf_module.h"
+#include "threadFuncWrapper.h"
 
 /* test */
 #include "response_json.h"
 #include "md5sum.h"
-
-void* inquiry_reg_state_loop(void* args){
-	;
-}
-
-void postTmpWorkToThreadPool(g_receive_para* tmp_receive, ThreadPool* g_threadpool){
-	AddWorker(inquiry_reg_state_loop,(void*)tmp_receive,g_threadpool);
-}
 
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
@@ -194,11 +187,6 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				clear_rssi_write_status(tmp_node,g_broker);
 
-				break;
-			}
-			case MSG_INQUIRY_RF_MF_STATE:
-			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_MF_STATE: msg_number = %d",getData->msg_number);
 				break;
 			}
 			case MSG_CONF_CHANGE: // for self test
@@ -433,7 +421,17 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_INQUIRY_RF_INFO:
 			{
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-				inquiry_rf_info(tmp_receive, g_broker);
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time tmp_receive = 0x%x", tmp_receive);
+				postRfWorkToThreadPool(tmp_receive, g_broker, g_threadpool);
+				break;
+			}
+			case MST_RF_INFO_READY:
+			{
+				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				char* response_json = getData->msg_json;
+				zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
+				int ret = assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
+				zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time tmp_receive = 0x%x", tmp_receive);
 				break;
 			}
 			case MSG_RF_FREQ_SETTING:
