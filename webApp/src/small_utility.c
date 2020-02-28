@@ -3,20 +3,25 @@
 #include <math.h>
 #include "cJSON.h"
 #include "broker.h"
+#include "web_common.h"
 
 void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue){
-	struct msg_st data;
-	data.msg_type = msg_type;
-	data.msg_number = msg_type;
+	struct msg_st* data = (struct msg_st*)malloc(sizeof(struct msg_st));
+	data->msg_type = msg_type;
+	data->msg_number = msg_type;
 
-	data.tmp_data = tmp_data;
-	data.tmp_data_len = tmp_data_len; // just usr for constellation IQ data transfer
+	data->tmp_data = tmp_data;
+	data->tmp_data_len = tmp_data_len; // just usr for constellation IQ data transfer
 
-	data.msg_len = buf_len;
+	data->msg_len = buf_len;
 	if(buf != NULL && buf_len != 0)
-		memcpy(data.msg_json,buf,buf_len);
-
-	postMsgQueue(&data,g_msg_queue);
+		memcpy(data->msg_json,buf,buf_len);
+	
+	int level = 0;
+	if(msg_type == MSG_ACCEPT_NEW_USER || msg_type == MSG_RECEIVE_THREAD_CLOSED){
+		level = 1;
+	}
+	postMsgQueue(data,level,g_msg_queue);
 }
 
 unsigned int stringToDecimalInt(char* ret){

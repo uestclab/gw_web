@@ -429,7 +429,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
 				char* response_json = getData->msg_json;
-				zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
+				//zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
 				int ret = assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
 				zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time tmp_receive = 0x%x", tmp_receive);
 				break;
