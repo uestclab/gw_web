@@ -18,8 +18,11 @@ void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_
 		memcpy(data->msg_json,buf,buf_len);
 	
 	int level = 0;
-	if(msg_type == MSG_ACCEPT_NEW_USER || msg_type == MSG_RECEIVE_THREAD_CLOSED){
-		level = 1;
+	// if(msg_type == MSG_ACCEPT_NEW_USER){ // error : msg_type == MSG_RECEIVE_THREAD_CLOSED
+	// 	level = 1;
+	// }else 
+	if(msg_type == MSG_CONF_CHANGE){
+		level = -1;
 	}
 	postMsgQueue(data,level,g_msg_queue);
 }
@@ -486,31 +489,31 @@ double calculateDeviceTemp(char* ret){
 
 double calculateBBCurrent(char* ret){
 	double result = 0;
-	double result_f = 0;
-	int str_len = strlen(ret);
-	char* tmp = malloc(str_len + 1);
-	memcpy(tmp,ret,str_len+1);
-	if(str_len == 6){
-		if(tmp[2] == '4')
-			result_f = 0.25;
-		else if(tmp[2] == 'c')
-			result_f = 0.75;
-		else if(tmp[2] == '8')
-			result_f = 0.5;
-		tmp[2] = '0';
-		tmp[3] = '0';
-	}
-	unsigned int result_int = stringToInt(tmp);
-	result = result_int + result_f;
+	// double result_f = 0;
+	// int str_len = strlen(ret);
+	// char* tmp = malloc(str_len + 1);
+	// memcpy(tmp,ret,str_len+1);
+	// if(str_len == 6){
+	// 	if(tmp[2] == '4')
+	// 		result_f = 0.25;
+	// 	else if(tmp[2] == 'c')
+	// 		result_f = 0.75;
+	// 	else if(tmp[2] == '8')
+	// 		result_f = 0.5;
+	// 	tmp[2] = '0';
+	// 	tmp[3] = '0';
+	// }
+	// unsigned int result_int = stringToInt(tmp);
+	// result = result_int + result_f;
 	return result;
 }
 
 double calculateBBVs(char* ret){
-	;
+	return 0.02;
 }
 
 double calculateADCTemper(char* ret){
-	;
+	return 36.3;
 }
 
 /* ---------------------------------- low and high ------------------------- */

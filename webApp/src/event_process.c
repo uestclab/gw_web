@@ -64,8 +64,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 	create_monitor_configue_change(g_broker);
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
-		if(getData == NULL)
+		if(getData == NULL){
+			zlog_info(zlog_handler," getMsgQueue : getData == NULL \n");
 			continue;
+		}
 		
 		switch(getData->msg_type){
 			case MSG_ACCEPT_NEW_USER:
@@ -212,17 +214,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				struct user_session_node *pnode = NULL;
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
-						if(state_id == 11 && cmd == 11){
-							state_cnt = 1;
-							postMsg(MSG_RESET_SYSTEM, NULL, 0, pnode->g_receive, 0, pnode->g_receive->g_msg_queue);
-						}else if(state_id == 22 && cmd == 22){
-							state_cnt = 0;
-						}			
+						if(state_id == 11){
+							debugMsgQueue(pnode->g_receive->g_msg_queue);
+						}else if(state_id == 22){
+							debugMsgDeQueue(pnode->g_receive->g_msg_queue);
+						}
+						break;			
 					}
 				}
 
-
-				//test_process_exception(state_cnt, g_broker);
 				cJSON_Delete(root);
 				free(p_conf_file);
 
@@ -421,17 +421,23 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_INQUIRY_RF_INFO:
 			{
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time tmp_receive = 0x%x", tmp_receive);
-				postRfWorkToThreadPool(tmp_receive, g_broker, g_threadpool);
+				int user_node_id = find_user_node_id(tmp_receive->connfd, g_server);
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time user_id = %d", user_node_id);
+				postRfWorkToThreadPool(user_node_id, g_broker, g_threadpool);
 				break;
 			}
-			case MST_RF_INFO_READY:
+			case MST_RF_INFO_READY: // bug : 0302 --- MST_RF_INFO_READY may after MSG_RECEIVE_THREAD_CLOSED
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				int tmp_node_id = *((int*)getData->tmp_data);
+				free(getData->tmp_data);
 				char* response_json = getData->msg_json;
 				//zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
-				int ret = assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
-				zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time tmp_receive = 0x%x", tmp_receive);
+				struct user_session_node* tmp_node = find_user_node_by_user_id(tmp_node_id, g_server);
+				if(tmp_node != NULL){
+					int ret = assemble_frame_and_send(tmp_node->g_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
+				}
+				
+				zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time user_id = %d", tmp_node_id);
 				break;
 			}
 			case MSG_RF_FREQ_SETTING:
@@ -519,14 +525,21 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dm
 /* ------------------------------ rssi record function ---------------------------- */
 
 void record_rssi_enable(int connfd, g_server_para* g_server){
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_rssi = 1;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
-            break;
-        }
-    }
+    // struct user_session_node *pnode = NULL;
+    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+    //     if(pnode->g_receive->connfd == connfd){    
+    //         pnode->record_action->enable_rssi = 1;
+	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
+    //         break;
+    //     }
+    // }
+
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_rssi = 1;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
+	}
 }
 
 int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_server_para* g_server){
@@ -548,29 +561,33 @@ int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serv
 		rssi_save = 1;
 	}
 
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_rssi_save = rssi_save;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
-            break;
-        }
-    }
+    // struct user_session_node *pnode = NULL;
+    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+    //     if(pnode->g_receive->connfd == connfd){    
+    //         pnode->record_action->enable_rssi_save = rssi_save;
+	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
+    //         break;
+    //     }
+    // }
+
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_rssi_save = rssi_save;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
+	}
 
 	cJSON_Delete(root);
 	return 0;
 }
 
 /* --------------------------------- csi record function ------------------------------------------ */
-
 void record_csi_start_enable(int connfd, int enable, g_server_para* g_server){
 	struct user_session_node *pnode = NULL;
-	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			pnode->record_action->enable_start_csi = enable;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_start_csi = %d \n", connfd, enable);
-            break;
-		}
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_start_csi = enable;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_start_csi = %d \n", connfd, enable);
 	}
 }
 
@@ -593,14 +610,21 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 		csi_save = 1;
 	}
 
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_csi_save = csi_save;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
-            break;
-        }
-    }
+    // struct user_session_node *pnode = NULL;
+    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+    //     if(pnode->g_receive->connfd == connfd){    
+    //         pnode->record_action->enable_csi_save = csi_save;
+	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
+    //         break;
+    //     }
+    // }
+
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_csi_save = csi_save;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
+	}
 
 	cJSON_Delete(root);
 	return 0;
@@ -608,13 +632,19 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 
 /* --------------------------------- constellation record function ------------------------------------------ */
 void record_constell_start_enable(int connfd, int enable, g_server_para* g_server){
+	// struct user_session_node *pnode = NULL;
+	// list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+	// 	if(pnode->g_receive->connfd == connfd){
+	// 		pnode->record_action->enable_start_constell = enable;
+	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
+    //         break;
+	// 	}
+	// }
 	struct user_session_node *pnode = NULL;
-	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			pnode->record_action->enable_start_constell = enable;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
-            break;
-		}
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_start_constell = enable;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
 	}
 }
 

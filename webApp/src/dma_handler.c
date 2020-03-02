@@ -5,19 +5,6 @@
 
 
 /* ----------------------- common use ------------------------- */
-
-g_receive_para* findReceiveNode_dma(int connfd, g_dma_para* g_dma){
-	struct user_session_node *pnode = NULL;
-	g_receive_para* tmp_receive = NULL;
-	list_for_each_entry(pnode, &g_dma->g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			tmp_receive = pnode->g_receive;    
-			break;
-		}
-	}
-	return tmp_receive;
-}
-
 csi_user_node* findCsiUserNode(int connfd, g_dma_para* g_dma){
 	struct csi_user_node *pnode = NULL;
 	struct csi_user_node *tmp = NULL;
@@ -125,7 +112,7 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	g_dma_tmp->constellation_module.user_cnt = 0;
 
 
-	zlog_info(handler,"End create_dma_handler open axidma() p_csi = %x, \n", (*g_dma)->p_axidma);
+	zlog_info(handler,"End create_dma_handler open axidma() p_csi = 0x%x, \n", (*g_dma)->p_axidma);
 	return 0;
 
 }
@@ -149,7 +136,7 @@ void close_dma(g_dma_para* g_dma){
 		zlog_info(g_dma->log_handler,"g_dma->p_axidma == NULL in close_dma\n");
 		return;
 	}
-	zlog_info(g_dma->log_handler,"before axidma_close : %x \n" , g_dma->p_axidma);
+	zlog_info(g_dma->log_handler,"before axidma_close : 0x%x \n" , g_dma->p_axidma);
 	axidma_close(g_dma->p_axidma);
 	g_dma->p_axidma = NULL;
 	zlog_info(g_dma->log_handler,"close_dma() \n");
@@ -253,7 +240,7 @@ void send_csi_display_in_event_loop(g_dma_para* g_dma){
 
 	struct csi_user_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_dma->csi_user_node_head, list) {
-		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
+		g_receive_para* tmp_receive = findReceiveNode(pnode->connfd,g_dma->g_server);
 		if(tmp_receive != NULL){
 			//zlog_info(g_dma->log_handler, "send csi to node js , json len : %d \n", strlen(csi_data_response_json));
 			assemble_frame_and_send(tmp_receive,csi_data_response_json,strlen(csi_data_response_json),TYPE_CSI_DATA_RESPONSE);
@@ -533,7 +520,7 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 
 	struct constell_user_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_dma->constell_user_node_head, list) {
-		g_receive_para* tmp_receive = findReceiveNode_dma(pnode->connfd,g_dma);
+		g_receive_para* tmp_receive = findReceiveNode(pnode->connfd,g_dma->g_server);
 		if(tmp_receive != NULL){
 			//zlog_info(g_dma->log_handler, "send constell iq to node js , json len : %d , iq_cnt = %d \n", strlen(constell_data_response_json), g_dma->cons_iq_pair->iq_cnt);
 			assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),TYPE_CONSTELLATION_DATA_RESPONSE + 1);

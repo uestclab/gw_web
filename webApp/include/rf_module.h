@@ -31,7 +31,7 @@ extern double adc_temper;
 extern double zynq_temper;
 
 /* rf */
-char* inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker);
+char* inquiry_rf_info(g_broker_para* g_broker);
 int process_rf_freq_setting(char* stat_buf, int stat_buf_len, g_broker_para* g_broker);
 int open_tx_power();
 int close_tx_power();

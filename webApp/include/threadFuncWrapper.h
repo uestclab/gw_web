@@ -18,7 +18,6 @@ typedef struct input_args_t{
     void* arg_3;
 }input_args_t;
 
-void postRfWorkToThreadPool(g_receive_para* tmp_receive, g_broker_para* g_broker, ThreadPool* g_threadpool);
-
+void postRfWorkToThreadPool(int user_node_id, g_broker_para* g_broker, ThreadPool* g_threadpool);
 
 #endif//THREAD_FUNC_WRAPPER_H

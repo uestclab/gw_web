@@ -26,7 +26,7 @@ double zynq_temper;
 * @brief 提供射频信息数据. \n
 * 响应设置射频等操作
 */
-char* inquiry_rf_info(g_receive_para* tmp_receive, g_broker_para* g_broker){
+char* inquiry_rf_info(g_broker_para* g_broker){
 	char* response_json = rf_info_response(g_broker->g_RegDev,g_broker->log_handler);
     return response_json;
 }
@@ -63,69 +63,88 @@ int rx_gain_high(){
     return 0;
 }
 
+// i2cset -y -f 1 0x48 0x19 0x12
+// #等待1ms
+// i2cget -y -f 1 0x48 0x08
+// i2cget -y -f 1 0x48 0x04
 double get_local_oscillator_lock_state(zlog_category_t* handler){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
     //i2cset  -y -f 0 0x48 0x19 0x12
-    i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x12");
+    i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x12");
 
     // i2cget -y -f 0 0x48 0x08     //MSB    高8位
-    p_ret_high = i2cget("/dev/i2c-0", "0x48", "0x08", 0);
+    p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x08", 0);
 
     // i2cget -y -f 0 0x48 0x04     //Bit[1:0]作为低2位
-    p_ret_low  = i2cget("/dev/i2c-0", "0x48", "0x04", 0);
+    p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
-    // i2cset  -y -f 0 0x48 0x19 0x14  
-    i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x14");
+    // // i2cset  -y -f 0 0x48 0x19 0x14  
+    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
 
     double Vadc1 = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
-        //Vadc1 = calculate_local_oscillator_lock(p_ret_low, p_ret_high);
+        Vadc1 = calculate_local_oscillator_lock(p_ret_low, p_ret_high);
         free(p_ret_low);
         free(p_ret_high);
     }
     return Vadc1;
 }
 
+// ---射频读取发射电路-1温度 ： 毫米波模块温度？
+// i2cset -y -f 1 0x48 0x19 0x15
+// #等待1ms
+// i2cget -y -f 1 0x48 0x0b
+// i2cget -y -f 1 0x48 0x04
+// ---射频读取发射电路-2温度 : 毫米波模块温度?
+// i2cset -y -f 1 0x48 0x19 0x13
+// #等待1ms
+// i2cget -y -f 1 0x48 0x09
+// i2cget -y -f 1 0x48 0x04
 double get_rf_temper(){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
     //i2cset  -y -f 0 0x48 0x19 0x15
-    i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x15");
-
+    i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x15");
+    usleep(1000);
     //i2cget -y -f 0 0x48 0x0b    //MSB    高8位
-    p_ret_high = i2cget("/dev/i2c-0", "0x48", "0x0b", 0);
+    p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0b", 0);
 
     // i2cget -y -f 0 0x48 0x04     //Bit[7:6]作为低2位
-    p_ret_low  = i2cget("/dev/i2c-0", "0x48", "0x04", 0);
+    p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
-    // i2cset  -y -f 0 0x48 0x19 0x14  
-    i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x14");
+    // // i2cset  -y -f 0 0x48 0x19 0x14  
+    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
 
     double Vadc4 = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
-    //     Vadc4 = calculate_rf_temper(p_ret_low, p_ret_high);
+        Vadc4 = calculate_rf_temper(p_ret_low, p_ret_high);
         free(p_ret_low);
         free(p_ret_high);
     }
     return Vadc4;
 }
 
+// ---射频读取总电流 : 毫米波模块总电流
+// i2cset -y -f 1 0x48 0x19 0x14
+// #等待1ms
+// i2cget -y -f 1 0x48 0x0a
+// i2cget -y -f 1 0x48 0x04
 double get_rf_current(zlog_category_t* handler){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
 	
-    //i2cset  -y -f 0 0x48 0x19 0x13
-	i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x13");
-
+    //i2cset  -y -f 0 0x48 0x19 0x14
+	i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
+    usleep(1000);
 	//i2cget -y -f 0 0x48 0x09    :  MSB--高8位
-	p_ret_high = i2cget("/dev/i2c-0", "0x48", "0x09", 0);
+	p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0a", 0);
 
 	//i2cget -y -f 0 0x48 0x04    :  Bit[3:2]作为低2位
-	p_ret_low  = i2cget("/dev/i2c-0", "0x48", "0x04", 0);
+	p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
-    //i2cset  -y -f 0 0x48 0x19 0x14
-    i2cset("/dev/i2c-0", "0x48", "0x19", 1, "0x14");
+    // //i2cset  -y -f 0 0x48 0x19 0x14
+    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
 
     double rf_current = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
@@ -137,8 +156,13 @@ double get_rf_current(zlog_category_t* handler){
     return rf_current;
 }
 
-
-
+// ---读取12V电源电流 : 基带板电流
+// i2cset -y -f 1 0x28 0x04
+// i2cset -y -f 1 0x28 0x01 0x20
+//    #等待1ms
+// i2cget -y -f 1 0x28 0x04  w    #连续输出两个字节
+// i2cset -y -f 1 0x28 0x00       #切换为温度读取通道
+// i2cset -y -f 1 0x28 0x01 0x00
 double get_bb_current(){
     //  i2cset -y -f 1 0x28 0x04            
     //  i2cset -y -f 1 0x28 0x01 0x20     
@@ -154,8 +178,6 @@ double get_bb_current(){
     double bb_current = -1;
 
     if(p_ret != NULL){
-        // Vadc1=(ADC Code/1024)*2.5V
-        // IS=Vadc1/0.2
         bb_current = calculateBBCurrent(p_ret);
         free(p_ret);
     }
@@ -163,6 +185,10 @@ double get_bb_current(){
     return bb_current;
 }
 
+// i2cset -y -f 1 0x28 0x00
+// i2cset -y -f 1 0x28 0x01 0x00
+//    #等待1ms
+// i2cget -y -f 1 0x28 0x00  w   #连续输出两个字节
 double get_device_temper(zlog_category_t* handler){
     char* p_ret = NULL;
 	
@@ -177,8 +203,6 @@ double get_device_temper(zlog_category_t* handler){
     double device_temper = -1;
     
     if(p_ret != NULL){
-        // Positive Temperature = ADC Code/4  
-        // Negative Temperature = (ADC Code–512)/4
         device_temper = calculateDeviceTemp(p_ret);
         //zlog_info(handler," ---------------- device_temper = %f ",device_temper);
         free(p_ret);
@@ -187,6 +211,13 @@ double get_device_temper(zlog_category_t* handler){
 	return device_temper;
 }
 
+// ---读取12V电源电压 : 基带板电压VS
+// i2cset -y -f 1 0x28 0x04
+// i2cset -y -f 1 0x28 0x01 0x60
+//    #等待1ms
+// i2cget -y -f 1 0x28 0x04  w    #连续输出两个字节
+// i2cset -y -f 1 0x28 0x00       #切换为温度读取通道
+// i2cset -y -f 1 0x28 0x01 0x00
 double get_bb_vs(){
     // i2cset -y -f 1 0x28 0x04             
     // i2cset -y -f 1 0x28 0x01 0x60   
@@ -206,7 +237,7 @@ double get_bb_vs(){
     if(p_ret != NULL){
     // // Vadc3=(ADC Code/1024)*2.5V
     // // VS=Vadc3/0.091
-    //     bb_vs = calculateBBVs(p_ret);
+        bb_vs = calculateBBVs(p_ret);
         free(p_ret);
     }
 
@@ -221,18 +252,18 @@ double get_adc_temper(){
     // i2cset -y -f 1 0x28 0x01 0x00
 
     char* p_ret = NULL;
-	i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x80");
-	p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
-    i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
+	// i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x80");
+	// p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
+    // i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
 
     double adc_temper = -1;
     
     if(p_ret != NULL){
     // // Vadc4=(ADC Code/1024)*2.5V
     // // TJADC=(0.689-Vadc4)/0.0019
-    //     adc_temper = calculateADCTemper(p_ret);
+        adc_temper = calculateADCTemper(p_ret);
         free(p_ret);
     }
     return adc_temper;

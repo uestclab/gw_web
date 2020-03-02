@@ -88,6 +88,5 @@ void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker)
 
 
 /* test */
-void test_process_exception(int state, g_broker_para* g_broker);
  
 #endif//MOSQUITTO_BROKER_H

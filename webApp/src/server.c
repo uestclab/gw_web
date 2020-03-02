@@ -214,6 +214,7 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 
     INIT_LIST_HEAD(&((*g_server)->user_session_node_head));
 	(*g_server)->user_session_cnt    = 0;
+    (*g_server)->user_node_id_init   = 1;
 	int ret = pthread_create((*g_server)->para_t->thread_pid, NULL, runServer, (void*)(*g_server));
     if(ret != 0){
         zlog_error(handler,"create CreateServerThread error ! error_code = %d", ret);
@@ -246,6 +247,7 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 /* ------------------------- user session --------------------------------- */
 user_session_node* new_user_node(g_server_para* g_server){
     user_session_node* new_node = (user_session_node*)malloc(sizeof(user_session_node));
+    new_node->node_id = g_server->user_node_id_init;
     new_node->g_receive = (g_receive_para*)malloc(sizeof(g_receive_para));
     new_node->record_action = (record_action_t*)malloc(sizeof(record_action_t));
 
@@ -259,7 +261,10 @@ user_session_node* new_user_node(g_server_para* g_server){
 
     list_add_tail(&new_node->list, &g_server->user_session_node_head);
     g_server->user_session_cnt++;
-
+    g_server->user_node_id_init++;
+    if(g_server->user_node_id_init == 1025){
+        g_server->user_node_id_init = 1;
+    }
     return new_node;
 }
 
@@ -276,6 +281,52 @@ user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){ /
         }
     }
     return pnode;
+}
+
+int find_user_node_id(int connfd, g_server_para* g_server){
+    int node_id = -1;
+    struct user_session_node *pnode = NULL; 
+    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+        if(pnode->g_receive->connfd == connfd){
+            node_id = pnode->node_id;
+            break;
+        }
+    }
+    return node_id;
+}
+
+struct user_session_node* find_user_node_by_connfd(int connfd, g_server_para* g_server){
+    struct user_session_node *pnode = NULL;
+    struct user_session_node *tmp_pnode = NULL;  
+    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+        if(pnode->g_receive->connfd == connfd){
+            tmp_pnode = pnode;
+            break;
+        }
+    }
+    return tmp_pnode;
+}
+
+struct user_session_node* find_user_node_by_user_id(int user_id, g_server_para* g_server){
+    struct user_session_node *pnode = NULL;
+    struct user_session_node *tmp_pnode = NULL;  
+    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+        if(pnode->node_id == user_id){
+            tmp_pnode = pnode;
+            break;
+        }
+    }
+    return tmp_pnode;
+}
+
+g_receive_para* findReceiveNode(int connfd, g_server_para* g_server){
+	struct user_session_node *pnode = NULL;
+	g_receive_para* tmp_receive = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		tmp_receive = pnode->g_receive;
+	}
+	return tmp_receive;
 }
 
 void release_receive_resource(g_receive_para* g_receive){

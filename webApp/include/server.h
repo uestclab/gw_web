@@ -45,6 +45,7 @@ typedef struct g_receive_para{
 * @brief 网络管理新接入请求生命周期（页面新打开或刷新---页面关闭）对应状态
 */
 typedef struct user_session_node{
+	unsigned int                node_id;
 	struct g_receive_para*      g_receive;
 	struct record_action_t*     record_action;
 	struct list_head            list;
@@ -56,6 +57,7 @@ typedef struct user_session_node{
 typedef struct g_server_para{
 	g_msg_queue_para*  g_msg_queue;
 	int                listenfd;
+	int                user_node_id_init;
 	int                user_session_cnt;
 	struct list_head   user_session_node_head;
 	para_thread*       para_t;
@@ -68,6 +70,10 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
 
 user_session_node* new_user_node(g_server_para* g_server);
 user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server);
+int find_user_node_id(int connfd, g_server_para* g_server);
+struct user_session_node* find_user_node_by_user_id(int user_id, g_server_para* g_server);
+struct user_session_node* find_user_node_by_connfd(int connfd, g_server_para* g_server);
+g_receive_para* findReceiveNode(int connfd, g_server_para* g_server);
 void release_receive_resource(g_receive_para* g_receive);
 
 int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, int type);
