@@ -11,17 +11,14 @@ void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_
 	data->msg_number = msg_type;
 
 	data->tmp_data = tmp_data;
-	data->tmp_data_len = tmp_data_len; // just usr for constellation IQ data transfer
+	data->tmp_data_len = tmp_data_len; // just used for constellation IQ data transfer
 
 	data->msg_len = buf_len;
 	if(buf != NULL && buf_len != 0)
 		memcpy(data->msg_json,buf,buf_len);
 	
 	int level = 0;
-	// if(msg_type == MSG_ACCEPT_NEW_USER){ // error : msg_type == MSG_RECEIVE_THREAD_CLOSED
-	// 	level = 1;
-	// }else 
-	if(msg_type == MSG_CONF_CHANGE){
+	if(msg_type == MSG_CONF_CHANGE || msg_type == MSG_TIMEOUT){
 		level = -1;
 	}
 	postMsgQueue(data,level,g_msg_queue);
@@ -335,6 +332,14 @@ int IsProcessIsRun(char *proc)
     fp=NULL; 
     
 	return count;
+}
+
+/* reset system time */
+void changeSystemTime(char* time_str){
+	//date -s "2020-03-04 15:59:00"
+	char command[128];
+    sprintf(command, "date -s %s", time_str); 
+	system(command);
 }
 
 /* --- tmp ---- */

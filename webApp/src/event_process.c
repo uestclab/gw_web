@@ -11,6 +11,19 @@
 #include "response_json.h"
 #include "md5sum.h"
 
+void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma){
+	zlog_category_t* log_handler = g_server->log_handler;
+	zlog_info(log_handler,"  ---------------- displayManageInfo () --------------------------\n");
+	
+	zlog_info(log_handler,"user_node_cnt = %d \n" , g_server->user_session_cnt);
+	zlog_info(log_handler,"rssi user_cnt = %d \n", g_broker->rssi_module.user_cnt);
+	zlog_info(log_handler,"csi user_cnt = %d \n",g_dma->csi_module.user_cnt);
+	zlog_info(log_handler,"csi save_user_cnt = %d \n",g_dma->csi_module.save_user_cnt);
+	zlog_info(log_handler,"constellation user_cnt = %d \n",g_dma->constellation_module.user_cnt);
+	
+	zlog_info(log_handler,"  ---------------- end displayManageInfo () ----------------------\n");
+}
+
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
 	zlog_info(g_server->log_handler,"user_session_cnt = %d " , g_server->user_session_cnt);
@@ -57,10 +70,11 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
+	changeSystemTime("\"2020-03-04 15:59:00\"");
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
-
+	postTimeOutWorkToThreadPool(g_broker, g_threadpool);
 	create_monitor_configue_change(g_broker);
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -68,7 +82,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			zlog_info(zlog_handler," getMsgQueue : getData == NULL \n");
 			continue;
 		}
-		
+		web_msg_t* tmp_web = NULL;
 		switch(getData->msg_type){
 			case MSG_ACCEPT_NEW_USER:
 			{
@@ -85,7 +99,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				if(g_broker->enableCallback == 0){
 					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register broker callback \n");
 					broker_register_callback_interface(g_broker);
-					g_broker->enableCallback = 1;
+					g_broker->enableCallback = 1; 
 				}
 
 				if(g_dma->enableCallback == 0){
@@ -114,10 +128,12 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_INQUIRY_SYSTEM_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_SYSTEM_STATE: msg_number = %d",getData->msg_number);
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-
+				// add new json parse to distinguish different terminal and terminal system time
 				inquiry_system_state(tmp_receive,g_broker);
+
 				break;
 			}
 			case MSG_SYSTEM_STATE_EXCEPTION: // clear system state variable
@@ -131,21 +147,29 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_TIMEOUT:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT: msg_number = %d",getData->msg_number);
+
+				monitorManageInfo(g_server, g_broker, g_dma);
+
+				postTimeOutWorkToThreadPool(g_broker, g_threadpool);
+
 				break;
 			}
 			case MSG_INQUIRY_REG_STATE:
 			{
-				//zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
-				
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				inquiry_reg_state(tmp_receive, g_broker);
+				
 				break;
 			}
 			case MSG_INQUIRY_RSSI: // open rssi
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RSSI: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				/* open rssi */
 				int ret = open_rssi_state_external(tmp_receive->connfd, g_broker);
 				/* record open rssi : when check return */
@@ -170,7 +194,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CONTROL_RSSI: // rssi save enable or not
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				int ret = process_rssi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len,g_broker);
 				/* record rssi save cmd : if check return of process_rssi_save_file() ?*/
@@ -231,9 +257,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_START_CSI:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CSI: msg_number = %d",getData->msg_number);
-
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				/* check mutex with constell */
 				int state = check_constell_working(g_server);
 				if(state == 1){
@@ -250,13 +277,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				/* inform node js cmd state */
 				send_cmd_state(tmp_receive ,state);
 
+
 				break;
 			}
 			case MSG_STOP_CSI:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CSI: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				stop_csi_state_external(tmp_receive->connfd, g_dma);
 
@@ -290,7 +319,8 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CONSTELLATION: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				/* check mutex with csi */
 				int state = check_csi_working(g_server);
@@ -311,7 +341,8 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CONSTELLATION: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				stop_constellation_external(tmp_receive->connfd, g_dma);
 
@@ -336,8 +367,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CONTROL_SAVE_IQ_DATA:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_SAVE_IQ_DATA: msg_number = %d",getData->msg_number);
-
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
 				process_csi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len, g_dma);
 
@@ -360,7 +392,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_OPEN_DISTANCE_APP:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DISTANCE_APP: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("sh /tmp/gw_app/distance/conf/open_app.sh");
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -368,7 +403,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CLOSE_DISTANCE_APP:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DISTANCE_APP: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("sh /tmp/gw_app/distance/conf/close_app.sh");
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -376,7 +414,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_OPEN_DAC:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DAC: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("echo 1 > /sys/class/gpio/gpio973/value");
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -384,7 +425,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CLOSE_DAC:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DAC: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
+
 				system("echo 0 > /sys/class/gpio/gpio973/value");
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -392,65 +436,82 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CLEAR_LOG:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_LOG: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
+
 				system("sh /tmp/web/conf/clear_log.sh");
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_RESET_SYSTEM:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
 				send_cmd_state(tmp_receive ,CMD_OK);
 				system("reboot");
 				break;
 			}
 			case MSG_INQUIRY_STATISTICS:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
 				inquiry_statistics(tmp_receive, g_broker);
 				break;
 			}
 			case MSG_IP_SETTING:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_IP_SETTING: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
 				int ret = process_ip_setting(getData->msg_json, getData->msg_len,g_broker->log_handler);
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
 			}
 			case MSG_INQUIRY_RF_INFO:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
 				int user_node_id = find_user_node_id(tmp_receive->connfd, g_server);
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time user_id = %d", user_node_id);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time user_id = %d", user_node_id);
 				postRfWorkToThreadPool(user_node_id, g_broker, g_threadpool);
 				break;
 			}
 			case MST_RF_INFO_READY: // bug : 0302 --- MST_RF_INFO_READY may after MSG_RECEIVE_THREAD_CLOSED
 			{
-				int tmp_node_id = *((int*)getData->tmp_data);
-				free(getData->tmp_data);
-				char* response_json = getData->msg_json;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				int tmp_node_id = tmp_web->arg_1;
+				char* response_json = tmp_web->buf_data;	
+
 				//zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
 				struct user_session_node* tmp_node = find_user_node_by_user_id(tmp_node_id, g_server);
 				if(tmp_node != NULL){
 					int ret = assemble_frame_and_send(tmp_node->g_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
 				}
-				
-				zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time user_id = %d", tmp_node_id);
+				free(response_json);
+				//zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time user_id = %d", tmp_node_id);
 				break;
 			}
 			case MSG_RF_FREQ_SETTING:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RF_FREQ_SETTING: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
 				int ret = process_rf_freq_setting(getData->msg_json, getData->msg_len,g_broker);
 				break;
 			}
 			case MSG_OPEN_TX_POWER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_TX_POWER: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
 				int ret = open_tx_power();
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -458,7 +519,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CLOSE_TX_POWER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_TX_POWER: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;
+
 				int ret = close_tx_power();
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -466,7 +529,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_OPEN_RX_GAIN:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_RX_GAIN: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				int ret = rx_gain_high();
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -474,7 +539,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CLOSE_RX_GAIN:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_RX_GAIN: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				int ret = rx_gain_normal();
 				send_cmd_state(tmp_receive ,CMD_OK);
 				break;
@@ -482,6 +549,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			default:
 				break;
 		}// end switch
+		if(tmp_web != NULL){
+			free(tmp_web);
+		}
 		free(getData);
 	}// end while(1)
 }

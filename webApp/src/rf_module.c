@@ -71,13 +71,13 @@ double get_local_oscillator_lock_state(zlog_category_t* handler){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
     //i2cset  -y -f 0 0x48 0x19 0x12
-    i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x12");
+    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x12");
 
-    // i2cget -y -f 0 0x48 0x08     //MSB    高8位
-    p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x08", 0);
+    // // i2cget -y -f 0 0x48 0x08     //MSB    高8位
+    // p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x08", 0);
 
-    // i2cget -y -f 0 0x48 0x04     //Bit[1:0]作为低2位
-    p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
+    // // i2cget -y -f 0 0x48 0x04     //Bit[1:0]作为低2位
+    // p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
     // // i2cset  -y -f 0 0x48 0x19 0x14  
     // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
@@ -104,17 +104,11 @@ double get_local_oscillator_lock_state(zlog_category_t* handler){
 double get_rf_temper(){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
-    //i2cset  -y -f 0 0x48 0x19 0x15
-    i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x15");
-    usleep(1000);
-    //i2cget -y -f 0 0x48 0x0b    //MSB    高8位
-    p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0b", 0);
 
-    // i2cget -y -f 0 0x48 0x04     //Bit[7:6]作为低2位
-    p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
-
-    // // i2cset  -y -f 0 0x48 0x19 0x14  
-    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
+    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x15");
+    // usleep(1000);
+    // p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0b", 0);
+    // p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
     double Vadc4 = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
@@ -134,17 +128,10 @@ double get_rf_current(zlog_category_t* handler){
     char* p_ret_high = NULL;
     char* p_ret_low = NULL;
 	
-    //i2cset  -y -f 0 0x48 0x19 0x14
-	i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
-    usleep(1000);
-	//i2cget -y -f 0 0x48 0x09    :  MSB--高8位
-	p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0a", 0);
-
-	//i2cget -y -f 0 0x48 0x04    :  Bit[3:2]作为低2位
-	p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
-
-    // //i2cset  -y -f 0 0x48 0x19 0x14
-    // i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
+	// i2cset("/dev/i2c-1", "0x48", "0x19", 1, "0x14");
+    // usleep(1000);
+	// p_ret_high = i2cget("/dev/i2c-1", "0x48", "0x0a", 0);
+	// p_ret_low  = i2cget("/dev/i2c-1", "0x48", "0x04", 0);
 
     double rf_current = -1;
     if(p_ret_low != NULL && p_ret_high != NULL){
@@ -164,17 +151,13 @@ double get_rf_current(zlog_category_t* handler){
 // i2cset -y -f 1 0x28 0x00       #切换为温度读取通道
 // i2cset -y -f 1 0x28 0x01 0x00
 double get_bb_current(){
-    //  i2cset -y -f 1 0x28 0x04            
-    //  i2cset -y -f 1 0x28 0x01 0x20     
-    //  i2cget -y -f 1 0x28 0x04  w    //此处会得到两个字节的结果，取高10bit；注意该结果高8位先出，低8位后出，详见附件“IIC参数换算表”
-    //  i2cset -y -f 1 0x28 0x00         
-    //  i2cset -y -f 1 0x28 0x01 0x00
+
     char* p_ret = NULL;
-	i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x20");
-	p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
-    i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
+	// i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x20");
+	// p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
+    // i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
     double bb_current = -1;
 
     if(p_ret != NULL){
@@ -192,14 +175,9 @@ double get_bb_current(){
 double get_device_temper(zlog_category_t* handler){
     char* p_ret = NULL;
 	
-    //i2cset -y -f 1 0x28 0x00
-	i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
-
-	//i2cset -y -f 1 0x28 0x01 0x00
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
-
-	//i2cget -y -f 1 0x28 0x00
-	p_ret = i2cget("/dev/i2c-1", "0x28", "0x00", 2);
+	// i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
+	// p_ret = i2cget("/dev/i2c-1", "0x28", "0x00", 2);
     double device_temper = -1;
     
     if(p_ret != NULL){
@@ -219,18 +197,12 @@ double get_device_temper(zlog_category_t* handler){
 // i2cset -y -f 1 0x28 0x00       #切换为温度读取通道
 // i2cset -y -f 1 0x28 0x01 0x00
 double get_bb_vs(){
-    // i2cset -y -f 1 0x28 0x04             
-    // i2cset -y -f 1 0x28 0x01 0x60   
-    // i2cget -y -f 1 0x28 0x04 w     //此处会得到两个字节的结果，取高10bit；注意该结果高8位先出，低8位后出，详见附件“IIC参数换算表”
-    // i2cset -y -f 1 0x28 0x00     
-    // i2cset -y -f 1 0x28 0x01 0x00
-
     char* p_ret = NULL;
-	i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x60");
-	p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
-    i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
-	i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
+	// i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x60");
+	// p_ret = i2cget("/dev/i2c-1", "0x28", "0x04", 2);
+    // i2cset("/dev/i2c-1", "0x28", "0x00", 0, NULL);
+	// i2cset("/dev/i2c-1", "0x28", "0x01", 1, "0x00");
 
     double bb_vs = -1;
     
@@ -245,11 +217,6 @@ double get_bb_vs(){
 }
 
 double get_adc_temper(){
-    // i2cset -y -f 1 0x28 0x04                  
-    // i2cset -y -f 1 0x28 0x01 0x80    
-    // i2cget -y -f 1 0x28 0x04 w     //此处会得到两个字节的结果，取高10bit；注意该结果高8位先出，低8位后出，详见附件“IIC参数换算表”
-    // i2cset -y -f 1 0x28 0x00          
-    // i2cset -y -f 1 0x28 0x01 0x00
 
     char* p_ret = NULL;
 	// i2cset("/dev/i2c-1", "0x28", "0x04", 0, NULL);

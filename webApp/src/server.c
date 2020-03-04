@@ -19,55 +19,73 @@
 
 #define BUFFER_SIZE 1024 * 40
 
+int parseTerminalId(char* request_buf, int request_buf_len){
+	cJSON * root = NULL;
+    cJSON * item = NULL;
+    root = cJSON_Parse(request_buf);
+    int terminal_id = -1;
+    if(cJSON_HasObjectItem(root,"terminal_id") == 1){
+        item = cJSON_GetObjectItem(root,"terminal_id");
+        terminal_id = item->valueint;
+    }
+    cJSON_Delete(root);
+    return terminal_id;
+}
+
 int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 	int type = myNtohl(buf + 4);
 	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
-	if(type == TYPE_SYSTEM_STATE_REQUEST){
-		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+    int terminal_id = parseTerminalId(jsonfile,length-4);
+    web_msg_t* msg_tmp = (web_msg_t*)malloc(sizeof(web_msg_t));
+    msg_tmp->arg_1 = terminal_id;
+    msg_tmp->point_addr_1 = g_receive;
+
+    if(type == TYPE_SYSTEM_STATE_REQUEST){
+		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_REG_STATE_REQUEST){ // json
-		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
-		postMsg(MSG_INQUIRY_RSSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_INQUIRY_RSSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
-		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_START_CSI){ // start csi 
-		postMsg(MSG_START_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_START_CSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_STOP_CSI){ // stop csi
-		postMsg(MSG_STOP_CSI, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_STOP_CSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_CONTROL_SAVE_CSI){ // save csi data or not
-		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_START_CONSTELLATION){ // start constellation
-		postMsg(MSG_START_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_START_CONSTELLATION, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
-		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_OPEN_DISTANCE_APP){ // open distance app
-        postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLOSE_DISTANCE_APP){ // close distance app
-        postMsg(MSG_CLOSE_DISTANCE_APP, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_CLOSE_DISTANCE_APP, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_OPEN_DAC){ // open dac
-        postMsg(MSG_OPEN_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_OPEN_DAC, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLOSE_DAC){ // close dac
-        postMsg(MSG_CLOSE_DAC, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_CLOSE_DAC, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLEAR_LOG){ // clear log
-        postMsg(MSG_CLEAR_LOG, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_CLEAR_LOG, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_RESET){ // reset board
-        postMsg(MSG_RESET_SYSTEM, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_RESET_SYSTEM, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_STATISTICS_INFO){ // request eth and link info
-        postMsg(MSG_INQUIRY_STATISTICS, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_INQUIRY_STATISTICS, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_IP_SETTING){ // set ip
-        postMsg(MSG_IP_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_IP_SETTING, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_RF_INFO){ // request RF info
-        postMsg(MSG_INQUIRY_RF_INFO, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_INQUIRY_RF_INFO, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_RF_FREQ_SETTING){
-        postMsg(MSG_RF_FREQ_SETTING, jsonfile, length-4,g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_RF_FREQ_SETTING, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_OPEN_TX_POWER){
-        postMsg(MSG_OPEN_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_OPEN_TX_POWER, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLOSE_TX_POWER){
-        postMsg(MSG_CLOSE_TX_POWER, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_CLOSE_TX_POWER, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_OPEN_RX_GAIN){
-        postMsg(MSG_OPEN_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_OPEN_RX_GAIN, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }else if(type == TYPE_CLOSE_RX_GAIN){
-        postMsg(MSG_CLOSE_RX_GAIN, NULL, 0, g_receive, 0, g_receive->g_msg_queue);
+        postMsg(MSG_CLOSE_RX_GAIN, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
     }
 	return 0;
 }
@@ -376,8 +394,8 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
     }
 
-    if(TYPE_SYSTEM_STATE_RESPONSE == type){
-        zlog_info(g_receive->log_handler, "system state json : %s ", buf);
+    if(TYPE_SYSTEM_STATE_RESPONSE == type || TYPE_SYSTEM_STATE_EXCEPTION == type){
+        //zlog_info(g_receive->log_handler, "system state json : %s ", buf);
     }
 
     pthread_mutex_unlock(&(g_receive->send_mutex));

@@ -250,6 +250,7 @@ void parse_system_state(g_receive_para* tmp_receive, char* stat_buf, int stat_bu
 	}else{
 		g_broker->system_ready = 0;
 		char tmp_str[256];
+		zlog_error(g_broker->log_handler, "stat_buf : %s \n", stat_buf);
 		sprintf(tmp_str, "device is not ready , SystemState not 0x20 !!! %s \n", item->valuestring);
 		zlog_info(g_broker->log_handler,"other msg : %s ", tmp_str);
 		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
