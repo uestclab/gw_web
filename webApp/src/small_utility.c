@@ -18,7 +18,7 @@ void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_
 		memcpy(data->msg_json,buf,buf_len);
 	
 	int level = 0;
-	if(msg_type == MSG_CONF_CHANGE || msg_type == MSG_TIMEOUT){
+	if(msg_type == MSG_CONF_CHANGE){
 		level = -1;
 	}
 	postMsgQueue(data,level,g_msg_queue);
@@ -335,10 +335,11 @@ int IsProcessIsRun(char *proc)
 }
 
 /* reset system time */
+// changeSystemTime("\"2020-03-04 15:59:00\"");
 void changeSystemTime(char* time_str){
 	//date -s "2020-03-04 15:59:00"
 	char command[128];
-    sprintf(command, "date -s %s", time_str); 
+    sprintf(command, "date -s \"%s\"", time_str); 
 	system(command);
 }
 

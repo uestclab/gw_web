@@ -38,7 +38,7 @@ char* constell_data_response(int *vectReal, int *vectImag, int len);
 
 char* cmd_state_response(int state);
 
-char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t* handler);
+char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,int64_t update_acc_time,zlog_category_t* handler);
 
 char* rf_info_response(g_RegDev_para* g_RegDev,zlog_category_t* handler);
 

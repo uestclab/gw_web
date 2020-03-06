@@ -102,7 +102,8 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 
 	struct timeval tv;
   	gettimeofday(&tv, NULL);
-	(*g_broker)->start_time        = tv.tv_sec;
+	(*g_broker)->start_time        		  = tv.tv_sec;
+	(*g_broker)->update_acc_time          = 0;
 
 	INIT_LIST_HEAD(&((*g_broker)->rssi_user_node_head));
 	(*g_broker)->rssi_module.rssi_state = 0;

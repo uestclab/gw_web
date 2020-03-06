@@ -20,6 +20,12 @@ void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_p
 	zlog_info(log_handler,"csi user_cnt = %d \n",g_dma->csi_module.user_cnt);
 	zlog_info(log_handler,"csi save_user_cnt = %d \n",g_dma->csi_module.save_user_cnt);
 	zlog_info(log_handler,"constellation user_cnt = %d \n",g_dma->constellation_module.user_cnt);
+
+	struct timeval tv;
+  	gettimeofday(&tv, NULL);
+	int64_t end = tv.tv_sec;
+	double acc_sec = end-g_broker->start_time;
+	zlog_info(log_handler, "start = %lld , end = %lld , acc_sec = %lf \n", g_broker->start_time, end, acc_sec);
 	
 	zlog_info(log_handler,"  ---------------- end displayManageInfo () ----------------------\n");
 }
@@ -70,7 +76,6 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
-	changeSystemTime("\"2020-03-04 15:59:00\"");
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
@@ -133,6 +138,22 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				// add new json parse to distinguish different terminal and terminal system time
 				inquiry_system_state(tmp_receive,g_broker);
+
+				// update device system time at inital access
+				if(g_server->update_system_time){
+					struct timeval tv;
+					gettimeofday(&tv, NULL);
+					g_broker->update_acc_time = tv.tv_sec - g_broker->start_time;
+
+					if(tmp_web->buf_data != NULL){
+						changeSystemTime(tmp_web->buf_data);
+					}else{
+						changeSystemTime("2020-03-06 14:40:00");
+					}
+					g_server->update_system_time = 0;
+					gettimeofday(&tv, NULL);
+					g_broker->start_time = tv.tv_sec;
+				}
 
 				break;
 			}

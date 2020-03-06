@@ -34,6 +34,7 @@ typedef struct rssi_module_t{
 typedef struct g_broker_para{
     int                system_ready; // device state
 	int64_t            start_time;
+	int64_t            update_acc_time;
 	int                enableCallback;
 	g_msg_queue_para*  g_msg_queue;
 	g_server_para*     g_server;

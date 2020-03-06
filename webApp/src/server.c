@@ -19,26 +19,31 @@
 
 #define BUFFER_SIZE 1024 * 40
 
-int parseTerminalId(char* request_buf, int request_buf_len){
+void parseRequestJson(char* request_buf, int request_buf_len, web_msg_t* msg_tmp){
 	cJSON * root = NULL;
     cJSON * item = NULL;
     root = cJSON_Parse(request_buf);
-    int terminal_id = -1;
+    msg_tmp->arg_1 = -1;
+    msg_tmp->buf_data = NULL;
+    msg_tmp->buf_data_len = 0;
     if(cJSON_HasObjectItem(root,"terminal_id") == 1){
         item = cJSON_GetObjectItem(root,"terminal_id");
-        terminal_id = item->valueint;
+        msg_tmp->arg_1 = item->valueint;
+    }
+    if(cJSON_HasObjectItem(root,"remote_time") == 1){
+        item = cJSON_GetObjectItem(root,"remote_time");
+        msg_tmp->buf_data = item->valuestring;
+        msg_tmp->buf_data_len = strlen(item->valuestring)+1;
     }
     cJSON_Delete(root);
-    return terminal_id;
 }
 
 int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
 	int type = myNtohl(buf + 4);
 	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
-    int terminal_id = parseTerminalId(jsonfile,length-4);
     web_msg_t* msg_tmp = (web_msg_t*)malloc(sizeof(web_msg_t));
-    msg_tmp->arg_1 = terminal_id;
     msg_tmp->point_addr_1 = g_receive;
+    parseRequestJson(jsonfile,length-4,msg_tmp);
 
     if(type == TYPE_SYSTEM_STATE_REQUEST){
 		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
@@ -229,6 +234,7 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	(*g_server)->para_t       = newThreadPara();
 	(*g_server)->g_msg_queue  = g_msg_queue;
 	(*g_server)->log_handler  = handler;
+    (*g_server)->update_system_time = 1;
 
     INIT_LIST_HEAD(&((*g_server)->user_session_node_head));
 	(*g_server)->user_session_cnt    = 0;

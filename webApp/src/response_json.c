@@ -336,8 +336,7 @@ char* cmd_state_response(int state){
     return cmd_state_response_json;
 }
 
-
-char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t* handler){
+char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,int64_t update_acc_time,zlog_category_t* handler){
     char* response_json = NULL;
     int arry_num = 0;
     uint32_t value = 0;
@@ -431,8 +430,8 @@ char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t*
     struct timeval tv;
   	gettimeofday(&tv, NULL);
 	int64_t end = tv.tv_sec;
-	double acc_sec = end-start;
-    //zlog_info(handler, "start = %lld , end = %lld , acc_sec = %lf \n", start, end, acc_sec);
+	double acc_sec = end-start + update_acc_time;
+    //zlog_info(handler, "start = %lld , end = %lld , acc_sec = %lf , update_acc_time = lld \n", start, end, acc_sec, update_acc_time);
     cJSON_AddNumberToObject(obj_1, "value",acc_sec);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
