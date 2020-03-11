@@ -145,15 +145,17 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					gettimeofday(&tv, NULL);
 					g_broker->update_acc_time = tv.tv_sec - g_broker->start_time;
 
-					if(tmp_web->buf_data != NULL){
-						changeSystemTime(tmp_web->buf_data);
+					if(tmp_web->buf_data_len != 0){
+						changeSystemTime(tmp_web->currentTime);
 					}else{
-						changeSystemTime("2020-03-06 14:40:00");
+						changeSystemTime("2000-03-06 14:40:00");
 					}
 					g_server->update_system_time = 0;
 					gettimeofday(&tv, NULL);
 					g_broker->start_time = tv.tv_sec;
+					zlog_info(zlog_handler,"update device system time \n");
 				}
+				zlog_info(zlog_handler,"localIp = %s \n", tmp_web->localIP);
 
 				break;
 			}
@@ -534,7 +536,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
 
 				int ret = open_tx_power();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(tmp_receive ,CMD_FAIL);
 				break;
 			}
 			case MSG_CLOSE_TX_POWER:

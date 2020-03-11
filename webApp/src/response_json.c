@@ -330,6 +330,7 @@ char* cmd_state_response(int state){
     cJSON_AddStringToObject(root, "comment", "cmd_state_response_json");
     cJSON_AddNumberToObject(root, "type", TYPE_CMD_STATE_RESPONSE);
     cJSON_AddNumberToObject(root, "cmd_state",state);
+    cJSON_AddNumberToObject(root, "cmd_type", 1);
 
     cmd_state_response_json = cJSON_Print(root);
     cJSON_Delete(root);

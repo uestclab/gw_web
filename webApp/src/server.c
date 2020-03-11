@@ -20,19 +20,20 @@
 #define BUFFER_SIZE 1024 * 40
 
 void parseRequestJson(char* request_buf, int request_buf_len, web_msg_t* msg_tmp){
+    //{"comment":"comment","type":1,"dst":"mon","op_cmd":0,"localIp":"192.168.0.100","currentTime":"2020-3-9 10:16:22"}
 	cJSON * root = NULL;
     cJSON * item = NULL;
     root = cJSON_Parse(request_buf);
     msg_tmp->arg_1 = -1;
     msg_tmp->buf_data = NULL;
     msg_tmp->buf_data_len = 0;
-    if(cJSON_HasObjectItem(root,"terminal_id") == 1){
-        item = cJSON_GetObjectItem(root,"terminal_id");
-        msg_tmp->arg_1 = item->valueint;
+    if(cJSON_HasObjectItem(root,"localIp") == 1){
+        item = cJSON_GetObjectItem(root,"localIp");
+        memcpy(msg_tmp->localIP, item->valuestring, strlen(item->valuestring)+1);
     }
-    if(cJSON_HasObjectItem(root,"remote_time") == 1){
-        item = cJSON_GetObjectItem(root,"remote_time");
-        msg_tmp->buf_data = item->valuestring;
+    if(cJSON_HasObjectItem(root,"currentTime") == 1){
+        item = cJSON_GetObjectItem(root,"currentTime");
+        memcpy(msg_tmp->currentTime, item->valuestring, strlen(item->valuestring)+1);
         msg_tmp->buf_data_len = strlen(item->valuestring)+1;
     }
     cJSON_Delete(root);
@@ -46,6 +47,7 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
     parseRequestJson(jsonfile,length-4,msg_tmp);
 
     if(type == TYPE_SYSTEM_STATE_REQUEST){
+        zlog_info(g_receive->log_handler,"%s",jsonfile);
 		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_REG_STATE_REQUEST){ // json
 		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);

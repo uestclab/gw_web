@@ -23,7 +23,9 @@ typedef struct web_msg_t
     void*    point_addr_1;
     
 	void*    buf_data;
-	int      buf_data_len; 
+	int      buf_data_len;
+    char     localIP[128];
+    char     currentTime[128]; 
 }web_msg_t;
 
 void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue);
