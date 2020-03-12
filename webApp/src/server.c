@@ -285,6 +285,8 @@ user_session_node* new_user_node(g_server_para* g_server){
 
     new_node->record_action->enable_start_constell = 0;
 
+    new_node->user_ip = NULL;
+
     list_add_tail(&new_node->list, &g_server->user_session_node_head);
     g_server->user_session_cnt++;
     g_server->user_node_id_init++;

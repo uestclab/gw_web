@@ -45,6 +45,7 @@ typedef struct g_receive_para{
 * @brief 网络管理新接入请求生命周期（页面新打开或刷新---页面关闭）对应状态
 */
 typedef struct user_session_node{
+	char*                       user_ip;
 	unsigned int                node_id;
 	struct g_receive_para*      g_receive;
 	struct record_action_t*     record_action;

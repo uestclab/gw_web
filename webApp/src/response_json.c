@@ -3,6 +3,35 @@
 #include "small_utility.h"
 #include "rf_module.h"
 
+void init_record_str(record_str_t* record){
+    
+    sprintf(record->constrol_rssi_succ, "open rssi success");
+    sprintf(record->constrol_rssi_fail, "open rssi fail");
+    sprintf(record->start_csi_succ, "start csi success");
+    sprintf(record->start_csi_fail, "start csi fail");
+    sprintf(record->start_csi_mutex, "start csi confict with constelltion");
+    sprintf(record->stop_csi_succ, "stop csi success");
+    sprintf(record->stop_csi_fail, "stop csi fail");
+    sprintf(record->start_constell_succ, "start constell success");
+    sprintf(record->start_constell_fail, "start constell fail");
+    sprintf(record->start_constell_mutex, "start constelltion confict with csi");
+    sprintf(record->stop_constell_succ, "stop constell success");
+    sprintf(record->stop_constell_fail, "stop constell fail");
+    sprintf(record->csi_save_succ, "save csi success");
+    sprintf(record->csi_save_fail, "save csi fail");
+    sprintf(record->open_distance_succ, "open distance success");
+    sprintf(record->close_distance_succ, "close distance success");
+    sprintf(record->open_dac_succ, "open dac success");
+    sprintf(record->close_dac_succ, "close dac success");
+    sprintf(record->clear_log_succ, "clear log success");
+    sprintf(record->reset_sys_succ, "reset system success");
+    sprintf(record->ip_setting_succ, "ip setting success");
+    sprintf(record->open_txpower_succ, "open txpower success");
+    sprintf(record->close_txpower_succ, "close txpower success");
+    sprintf(record->open_rxgain_succ, "open rxgain success");
+    sprintf(record->close_rxgain_succ, "close rxgain success");
+
+}
 
 
 char* system_state_response(int is_ready, int is_exception, system_state_t* tmp_system_state){
@@ -324,13 +353,13 @@ char* constell_data_response(int *vectReal, int *vectImag, int len){
     return constell_data_response_json;
 }
 
-char* cmd_state_response(int state){
+char* cmd_state_response(int state, char* record_str){
     char* cmd_state_response_json = NULL;
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "comment", "cmd_state_response_json");
     cJSON_AddNumberToObject(root, "type", TYPE_CMD_STATE_RESPONSE);
     cJSON_AddNumberToObject(root, "cmd_state",state);
-    cJSON_AddNumberToObject(root, "cmd_type", 1);
+    cJSON_AddStringToObject(root, "record_str", record_str);
 
     cmd_state_response_json = cJSON_Print(root);
     cJSON_Delete(root);

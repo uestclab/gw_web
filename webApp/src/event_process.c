@@ -73,9 +73,12 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 }
 
 /* -------------------------- main process msg loop --------------------------------------------- */
-
 void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
 {
+
+	record_str_t* g_record = (record_str_t*)malloc(sizeof(record_str_t));
+
+	init_record_str(g_record);
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
@@ -155,6 +158,16 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					g_broker->start_time = tv.tv_sec;
 					zlog_info(zlog_handler,"update device system time \n");
 				}
+
+				struct user_session_node *pnode = NULL;
+				pnode = find_user_node_by_connfd(tmp_receive->connfd, g_server);
+				if(pnode != NULL){
+					if(pnode->user_ip == NULL){
+						pnode->user_ip = malloc(64);
+						memcpy(pnode->user_ip,tmp_web->localIP,strlen(tmp_web->localIP)+1);
+					}
+				}
+
 				zlog_info(zlog_handler,"localIp = %s \n", tmp_web->localIP);
 
 				break;
@@ -227,7 +240,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					record_rssi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
 				}
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive ,ret);
+				send_cmd_state(g_server, tmp_receive ,ret, g_record->constrol_rssi_succ);
 				break;
 			}
 			case MSG_CLEAR_RSSI_WRITE_STATUS: // case 2 : if not close save rssi manually, this event must be behind MSG_RECEIVE_THREAD_CLOSED
@@ -287,7 +300,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				/* check mutex with constell */
 				int state = check_constell_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CSI_MUTEX);
+					send_cmd_state(g_server,tmp_receive ,CSI_MUTEX, g_record->start_csi_mutex);
 					break;
 				}
 
@@ -298,7 +311,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				}
 
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive ,state);
+				send_cmd_state(g_server,tmp_receive ,state, g_record->start_csi_succ);
 
 
 				break;
@@ -315,7 +328,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				record_csi_start_enable(tmp_receive->connfd, STOP, g_server);
 
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive,CMD_OK);
+				send_cmd_state(g_server,tmp_receive,CMD_OK,g_record->stop_csi_succ);
 
 				break;
 			}
@@ -348,7 +361,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				/* check mutex with csi */
 				int state = check_csi_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CONSTELL_MUTEX);
+					send_cmd_state(g_server,tmp_receive ,CONSTELL_MUTEX, g_record->start_constell_mutex);
 					break;
 				}
 
@@ -356,7 +369,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_constell_start_enable(tmp_receive->connfd, START, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->start_constell_succ);
 
 				break;
 			}
@@ -371,7 +384,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_constell_start_enable(tmp_receive->connfd, STOP, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->stop_csi_succ);
 
 				break;
 			}
@@ -398,7 +411,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_csi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->csi_save_succ);
 
 				break;
 			}
@@ -420,7 +433,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				system("sh /tmp/gw_app/distance/conf/open_app.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_distance_succ);
 				break;
 			}
 			case MSG_CLOSE_DISTANCE_APP:
@@ -431,7 +444,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				system("sh /tmp/gw_app/distance/conf/close_app.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK,g_record->close_distance_succ);
 				break;
 			}
 			case MSG_OPEN_DAC:
@@ -442,7 +455,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				system("echo 1 > /sys/class/gpio/gpio973/value");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_dac_succ);
 				break;
 			}
 			case MSG_CLOSE_DAC:
@@ -453,7 +466,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
 				system("echo 0 > /sys/class/gpio/gpio973/value");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_dac_succ);
 				break;
 			}
 			case MSG_CLEAR_LOG:
@@ -464,7 +477,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
 				system("sh /tmp/web/conf/clear_log.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->clear_log_succ);
 				break;
 			}
 			case MSG_RESET_SYSTEM:
@@ -472,7 +485,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				tmp_web = (web_msg_t*)getData->tmp_data;
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->reset_sys_succ);
 				system("reboot");
 				break;
 			}
@@ -492,7 +505,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
 
 				int ret = process_ip_setting(getData->msg_json, getData->msg_len,g_broker->log_handler);
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK,g_record->ip_setting_succ);
 				break;
 			}
 			case MSG_INQUIRY_RF_INFO:
@@ -536,7 +549,10 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
 
 				int ret = open_tx_power();
-				send_cmd_state(tmp_receive ,CMD_FAIL);
+
+				zlog_info(zlog_handler, "TX _ POWER : %s \n", g_record->open_txpower_succ);
+
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_txpower_succ);
 				break;
 			}
 			case MSG_CLOSE_TX_POWER:
@@ -546,7 +562,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;
 
 				int ret = close_tx_power();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_txpower_succ);
 				break;
 			}
 			case MSG_OPEN_RX_GAIN:
@@ -556,7 +572,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 				
 				int ret = rx_gain_high();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_rxgain_succ);
 				break;
 			}
 			case MSG_CLOSE_RX_GAIN:
@@ -566,7 +582,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				int ret = rx_gain_normal();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_rxgain_succ);
 				break;
 			}
 			default:
@@ -612,20 +628,13 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dm
 	// free node
 	release_receive_resource(tmp_node->g_receive);
 	free(tmp_node->record_action);
+	free(tmp_node->user_ip);
 	free(tmp_node);
 }
 
 /* ------------------------------ rssi record function ---------------------------- */
 
 void record_rssi_enable(int connfd, g_server_para* g_server){
-    // struct user_session_node *pnode = NULL;
-    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-    //     if(pnode->g_receive->connfd == connfd){    
-    //         pnode->record_action->enable_rssi = 1;
-	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
-    //         break;
-    //     }
-    // }
 
 	struct user_session_node *pnode = NULL;
 	pnode = find_user_node_by_connfd(connfd, g_server);
@@ -653,15 +662,6 @@ int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serv
 	}else if(item->valueint == 1){ /* start save */
 		rssi_save = 1;
 	}
-
-    // struct user_session_node *pnode = NULL;
-    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-    //     if(pnode->g_receive->connfd == connfd){    
-    //         pnode->record_action->enable_rssi_save = rssi_save;
-	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
-    //         break;
-    //     }
-    // }
 
 	struct user_session_node *pnode = NULL;
 	pnode = find_user_node_by_connfd(connfd, g_server);
@@ -703,15 +703,6 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 		csi_save = 1;
 	}
 
-    // struct user_session_node *pnode = NULL;
-    // list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-    //     if(pnode->g_receive->connfd == connfd){    
-    //         pnode->record_action->enable_csi_save = csi_save;
-	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
-    //         break;
-    //     }
-    // }
-
 	struct user_session_node *pnode = NULL;
 	pnode = find_user_node_by_connfd(connfd, g_server);
 	if(pnode != NULL){
@@ -725,14 +716,7 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 
 /* --------------------------------- constellation record function ------------------------------------------ */
 void record_constell_start_enable(int connfd, int enable, g_server_para* g_server){
-	// struct user_session_node *pnode = NULL;
-	// list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-	// 	if(pnode->g_receive->connfd == connfd){
-	// 		pnode->record_action->enable_start_constell = enable;
-	// 		zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
-    //         break;
-	// 	}
-	// }
+
 	struct user_session_node *pnode = NULL;
 	pnode = find_user_node_by_connfd(connfd, g_server);
 	if(pnode != NULL){
@@ -747,7 +731,7 @@ void record_constell_start_enable(int connfd, int enable, g_server_para* g_serve
 #define CMD_FAIL -1
 #define CSI_MUTEX 2
 #define CONSTELL_MUTEX 3
-void send_cmd_state(g_receive_para* g_receive ,int state){
+void send_cmd_state(g_server_para* g_server, g_receive_para* g_receive ,int state, char* record_str){
 	int cmd_state = CMD_FAIL;
 	if(state == CMD_OK){
 		cmd_state = CMD_OK;
@@ -757,7 +741,15 @@ void send_cmd_state(g_receive_para* g_receive ,int state){
 		cmd_state = CONSTELL_MUTEX;
 	}
 	
-	char *cmd_state_response_json = cmd_state_response(cmd_state);
+	char tmp_record[256];
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(g_receive->connfd, g_server);
+	if(pnode != NULL){
+		sprintf(tmp_record, "%s : %s", pnode->user_ip, record_str);
+	}else{
+		sprintf(tmp_record, "No user : %s", record_str);
+	}
+	char *cmd_state_response_json = cmd_state_response(cmd_state,tmp_record);
 	assemble_frame_and_send(g_receive,cmd_state_response_json,strlen(cmd_state_response_json),TYPE_CMD_STATE_RESPONSE);
 	free(cmd_state_response_json);
 }
