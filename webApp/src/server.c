@@ -47,7 +47,6 @@ int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
     parseRequestJson(jsonfile,length-4,msg_tmp);
 
     if(type == TYPE_SYSTEM_STATE_REQUEST){
-        zlog_info(g_receive->log_handler,"%s",jsonfile);
 		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
 	}else if(type == TYPE_REG_STATE_REQUEST){ // json
 		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
@@ -173,7 +172,9 @@ void* receive_thread(void* args){
     while(g_receive->working == 1){ /* if disconnected , exit receive thread */
     	receive(g_receive);
     }
-
+    pthread_mutex_lock(&(g_receive->working_mutex));
+    g_receive->inform_work = 0;
+    pthread_mutex_unlock(&(g_receive->working_mutex));
 	postMsg(MSG_RECEIVE_THREAD_CLOSED,NULL,0,g_receive,0,g_receive->g_msg_queue); // pose MSG_RECEIVE_THREAD_CLOSED
     zlog_info(g_receive->log_handler,"end Exit receive_thread()\n");
 }
@@ -261,6 +262,7 @@ int CreateRecvThread(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, i
     g_receive->sendbuf         = (char*)malloc(BUFFER_SIZE);
     pthread_mutex_init(&(g_receive->send_mutex),NULL);
     g_receive->working         = 1;
+    g_receive->inform_work     = 1;
     pthread_mutex_init(&(g_receive->working_mutex),NULL);
 	int ret = pthread_create(g_receive->para_t->thread_pid, NULL, receive_thread, (void*)(g_receive));
     if(ret != 0){
@@ -369,7 +371,10 @@ void release_receive_resource(g_receive_para* g_receive){
 }
 
 int checkReceiveWorkingState(g_receive_para* g_receive){
-    return g_receive->working;
+    pthread_mutex_lock(&(g_receive->working_mutex));
+    int ret = g_receive->inform_work;
+    pthread_mutex_unlock(&(g_receive->working_mutex));
+    return ret;
 }
 
 /* ------------------------- send interface-------------------------------- */

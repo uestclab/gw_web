@@ -33,6 +33,7 @@ typedef struct g_receive_para{
 	para_thread*       para_t;
 	pthread_mutex_t    working_mutex;
 	int                working; // check disconnected
+	int                inform_work;
 	int                connfd;
 	int                moreData;
 	pthread_mutex_t    send_mutex;
