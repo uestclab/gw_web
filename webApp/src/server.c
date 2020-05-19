@@ -237,7 +237,7 @@ int CreateServerThread(g_server_para** g_server, g_msg_queue_para* g_msg_queue, 
 	(*g_server)->para_t       = newThreadPara();
 	(*g_server)->g_msg_queue  = g_msg_queue;
 	(*g_server)->log_handler  = handler;
-    (*g_server)->update_system_time = 1;
+    (*g_server)->update_system_time = 0;
 
     INIT_LIST_HEAD(&((*g_server)->user_session_node_head));
 	(*g_server)->user_session_cnt    = 0;

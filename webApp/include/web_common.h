@@ -35,6 +35,7 @@ typedef enum msg_event{
 	MSG_AIR,
 	MSG_MONITOR,
 	MSG_TIMEOUT,
+	MSG_TIMEOUT_TEST,
 	MSG_CONF_CHANGE,
 	/* process new client */
 	MSG_ACCEPT_NEW_USER,

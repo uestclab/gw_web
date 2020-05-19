@@ -79,6 +79,7 @@
 #include "dma_handler.h"
 #include "gw_control.h"
 #include "ThreadPool.h"
+#include "event_timer.h"
 #include "web_common.h"
 
 
@@ -111,7 +112,7 @@ void closeServerLog(){
 
 void check_assert(){
 	assert(sizeof (uint32_t) == 4);
-	printf("uint32_t : %d , uint64_t : %d \n", sizeof(uint32_t),sizeof(u_int64_t));
+	printf("uint32_t : %d , uint64_t : %d \n", sizeof(uint32_t),sizeof(u_int64_t)); 
 	printf("gw_web version built time is:[%s  %s]\n",__DATE__,__TIME__);
 }
 
@@ -127,23 +128,28 @@ int main(int argc,char** argv)
 	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
 	
 	/* msg_queue */
-	const char* pro_path = "/tmp/web/";
-	int proj_id = 0x4;
-	g_msg_queue_para* g_msg_queue = createMsgQueue(pro_path, proj_id, zlog_handler);
+	g_msg_queue_para* g_msg_queue = createMsgQueue();
 	if(g_msg_queue == NULL){
 		zlog_info(zlog_handler,"No msg_queue created \n");
 		return 0;
 	}
-	zlog_info(zlog_handler, "g_msg_queue->msgid = %d \n", g_msg_queue->msgid);
-	int state = clearMsgQueue(g_msg_queue);
+	//zlog_info(zlog_handler, "g_msg_queue->msgid = %d \n", g_msg_queue->msgid);
 
 	/* reg dev */
 	g_RegDev_para* g_RegDev = NULL;
-	state = initRegdev(&g_RegDev, zlog_handler);
+	int state = initRegdev(&g_RegDev, zlog_handler);
 	if(state != 0 ){
 		zlog_info(zlog_handler,"initRegdev create failed !");
 		return 0;
 	}
+
+	/* Timer handler */
+	event_timer_t* g_timer = NULL;
+    state = ngx_event_timer_init(&g_timer);
+    if(state != 0){
+        zlog_info(zlog_handler, "ngx_event_timer_init error , stat = %d \n", state);
+        return 0;
+    }
 
 	/* server thread */
 	g_server_para* g_server = NULL;
@@ -171,9 +177,9 @@ int main(int argc,char** argv)
 
 	/* ThreadPool handler */
 	ThreadPool* g_threadpool = NULL;
-	createThreadPool(128, 4, &g_threadpool,zlog_handler);
+	createThreadPool(128, 4, &g_threadpool);
 
-	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, zlog_handler);
+	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, g_timer, zlog_handler);
 
 	closeServerLog();
     return 0;

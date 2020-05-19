@@ -6,6 +6,7 @@
 #include "sys_handler.h"
 #include "rf_module.h"
 #include "threadFuncWrapper.h"
+#include "timer.h"
 
 /* test */
 #include "response_json.h"
@@ -73,7 +74,9 @@ void create_monitor_configue_change(g_broker_para* g_broker){
 }
 
 /* -------------------------- main process msg loop --------------------------------------------- */
-void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
+void 
+eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, 
+		g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, event_timer_t* g_timer, zlog_category_t* zlog_handler)
 {
 
 	record_str_t* g_record = (record_str_t*)malloc(sizeof(record_str_t));
@@ -82,7 +85,12 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
-	postTimeOutWorkToThreadPool(g_broker, g_threadpool);
+
+	addTimeOutWorkToTimer(g_msg_queue,g_timer);
+
+	//int num = 0;
+	//addLogTaskToTimer(g_msg_queue, &num, g_timer);
+
 	create_monitor_configue_change(g_broker);
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -184,9 +192,25 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT: msg_number = %d",getData->msg_number);
 
-				monitorManageInfo(g_server, g_broker, g_dma);
+				//monitorManageInfo(g_server, g_broker, g_dma);
 
-				postTimeOutWorkToThreadPool(g_broker, g_threadpool);
+				addTimeOutWorkToTimer(g_msg_queue,g_timer);
+
+				break;
+			}
+			case MSG_TIMEOUT_TEST:
+			{
+				
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT_TEST: msg_number = %d",getData->msg_number);
+
+				// struct LogTaskTimer_t* tmp = (struct LogTaskTimer_t*)(getData->tmp_data);
+
+				// int tmp_num = *(tmp->cnt_num);
+				// zlog_info(zlog_handler,"*****************  num = %d \n",tmp_num);
+
+				// addLogTaskToTimer(g_msg_queue, tmp->cnt_num, g_timer);
+
+				// free(tmp);
 
 				break;
 			}
@@ -277,9 +301,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
 						if(state_id == 11){
-							debugMsgQueue(pnode->g_receive->g_msg_queue);
+							;
 						}else if(state_id == 22){
-							debugMsgDeQueue(pnode->g_receive->g_msg_queue);
+							;
 						}
 						break;			
 					}
