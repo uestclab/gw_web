@@ -11,6 +11,7 @@
 /* test */
 #include "response_json.h"
 #include "md5sum.h"
+#include "utility.h"
 
 void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma){
 	zlog_category_t* log_handler = g_server->log_handler;
@@ -36,6 +37,36 @@ void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"user_session_cnt = %d " , g_server->user_session_cnt);
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
+
+/* ------------------ link detect ----------------------------- */
+void* link_detect_thread(void* args){
+	pthread_detach(pthread_self());
+
+	g_server_para* g_server = (g_server_para*)args;
+	int net_stat = -1;
+	while(1){
+		net_stat = get_netlink_status("eth0");
+		zlog_info(g_server->log_handler, "Net link status: %d\n", net_stat);
+		if(net_stat == 1 && g_server->openwrt_link == 0){
+			int connfd = connect_helloworld();
+			if(connfd > 0){
+				g_server->openwrt_link = 1;
+				g_server->openwrt_connfd = connfd;
+				postMsg(MSG_OPENWRT_CONNECTED,NULL,0,NULL,0,g_server->g_msg_queue);
+			}
+		}else if(net_stat == 0 && g_server->openwrt_link == 1){
+			g_server->openwrt_link = 0;
+			postMsg(MSG_OPENWRT_DISCONNECT,NULL,0,NULL,0,g_server->g_msg_queue);
+		}
+		sleep(2);
+	}
+}
+
+void create_link_detect(g_server_para* g_server){
+	pthread_t thread_pid;
+	pthread_create(&thread_pid, NULL, link_detect_thread, (void*)(g_server));
+}
+
 
 /* ------------------ test dynamic change conf ------------------------- */
 void* monitor_conf_thread(void* args){
@@ -90,8 +121,9 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 	//int num = 0;
 	//addLogTaskToTimer(g_msg_queue, &num, g_timer);
-
+	create_link_detect(g_server);
 	create_monitor_configue_change(g_broker);
+
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
 		if(getData == NULL){
@@ -141,6 +173,32 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				break;
 			}
+			/* process openwrt msg */
+			case MSG_OPENWRT_CONNECTED:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: msg_number = %d",getData->msg_number);
+
+				user_session_node* new_user = new_user_node(g_server);			
+				if(g_server->openwrt_link == 0){
+					break;
+				}
+				int ret = CreateRecvThread(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_connfd, g_server->log_handler);
+				if(g_broker->enableCallback == 0){
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback \n");
+					broker_register_callback_interface(g_broker);
+					g_broker->enableCallback = 1; 
+				}
+				
+				display(g_server);
+
+				break;
+			}
+			case MSG_OPENWRT_DISCONNECT:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_DISCONNECT: msg_number = %d",getData->msg_number);
+				break;
+			}
+			/* ----- end process openwrt msg -------*/
 			case MSG_INQUIRY_SYSTEM_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_SYSTEM_STATE: msg_number = %d",getData->msg_number);

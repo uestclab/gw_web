@@ -58,6 +58,8 @@ typedef struct user_session_node{
 */
 typedef struct g_server_para{
 	g_msg_queue_para*  g_msg_queue;
+	int                openwrt_link;
+	int                openwrt_connfd;
 	int                update_system_time;
 	int                listenfd;
 	int                user_node_id_init;
