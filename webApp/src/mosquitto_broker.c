@@ -126,7 +126,7 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 		return -2;
 
 	g_broker_temp = *g_broker;
-	zlog_info(handler,"end createBroker()\n");
+
 	// self test code 20200225 add new
 	frequency_rf = 757555;
 	tx_power_state = 0;
@@ -512,7 +512,7 @@ void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker){
 /* ????? */
 void* rssi_write_thread(void* args){
 
-	pthread_detach(pthread_self());
+	//pthread_detach(pthread_self());
 
 	rssi_user_node* tmp_node = (rssi_user_node*)args;
 
@@ -599,8 +599,7 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 			return -1;
 		}
 
-		pthread_t thread_pid;
-		pthread_create(&thread_pid, NULL, rssi_write_thread, (void*)(tmp_node));
+		AddWorker(rssi_write_thread,(void*)(tmp_node),g_broker->g_server->g_threadpool);
 		tmp_node->rssi_file_t->enable = 1;
 	}
 

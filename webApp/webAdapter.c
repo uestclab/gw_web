@@ -119,11 +119,11 @@ void check_assert(){
 int main(int argc,char** argv)
 {
 
-	check_assert();
+	//check_assert();
 
 	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
 
-	zlog_info(zlog_handler,"start webAdapter process\n");
+	zlog_info(zlog_handler,"******************** start webAdapter process ********************************\n");
 
 	zlog_info(zlog_handler,"this version built time is:[%s  %s]\n",__DATE__,__TIME__);
 	
@@ -151,9 +151,13 @@ int main(int argc,char** argv)
         return 0;
     }
 
+	/* ThreadPool handler */
+	ThreadPool* g_threadpool = NULL;
+	createThreadPool(64, 20, &g_threadpool);
+
 	/* server thread */
 	g_server_para* g_server = NULL;
-	state = CreateServerThread(&g_server, g_msg_queue, zlog_handler);
+	state = CreateServerThread(&g_server, g_threadpool, g_msg_queue, zlog_handler);
 	if(state == -1 || g_server == NULL){
 		zlog_info(zlog_handler,"No server thread created \n");
 		return 0;
@@ -174,10 +178,6 @@ int main(int argc,char** argv)
 		zlog_info(zlog_handler,"No dma handler created !\n");
 		return 0;
 	}
-
-	/* ThreadPool handler */
-	ThreadPool* g_threadpool = NULL;
-	createThreadPool(128, 4, &g_threadpool);
 
 	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, g_timer, zlog_handler);
 

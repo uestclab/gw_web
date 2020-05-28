@@ -253,10 +253,9 @@ void send_csi_display_in_event_loop(g_dma_para* g_dma){
 
 /* --------------------------- csi save --------------------------------------- */
 
-/* ????? */
 void* csi_write_thread(void* args){
 
-	pthread_detach(pthread_self());
+	//pthread_detach(pthread_self());
 
 	csi_save_user_node* tmp_node = (csi_save_user_node*)args;
 
@@ -346,8 +345,8 @@ int process_csi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_dma_pa
 			return -1;
 		}
 
-		pthread_t thread_pid;
-		pthread_create(&thread_pid, NULL, csi_write_thread, (void*)(tmp_node));
+		AddWorker(csi_write_thread,(void*)(tmp_node),g_dma->g_server->g_threadpool);
+
 		tmp_node->csi_file_t->enable = 1;
 	}
 

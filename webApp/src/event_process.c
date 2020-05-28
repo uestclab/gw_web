@@ -35,18 +35,26 @@ void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_p
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
 	zlog_info(g_server->log_handler,"user_session_cnt = %d " , g_server->user_session_cnt);
+
+	int user_cnt = 1;
+	struct user_session_node *pnode = NULL;
+	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+		if(pnode->g_receive != NULL){    
+			zlog_info(g_server->log_handler,"-- %d : user fd =  %d " , user_cnt, pnode->g_receive->connfd);
+			user_cnt = user_cnt + 1;
+		}
+	}
+
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
 /* ------------------ link detect ----------------------------- */
 void* link_detect_thread(void* args){
-	pthread_detach(pthread_self());
-
 	g_server_para* g_server = (g_server_para*)args;
 	int net_stat = -1;
 	while(1){
 		net_stat = get_netlink_status("eth0");
-		zlog_info(g_server->log_handler, "Net link status: %d\n", net_stat);
+		//zlog_info(g_server->log_handler, "Net link status: %d\n", net_stat);
 		if(net_stat == 1 && g_server->openwrt_link == 0){
 			int connfd = connect_helloworld();
 			if(connfd > 0){
@@ -63,16 +71,12 @@ void* link_detect_thread(void* args){
 }
 
 void create_link_detect(g_server_para* g_server){
-	pthread_t thread_pid;
-	pthread_create(&thread_pid, NULL, link_detect_thread, (void*)(g_server));
+	AddWorker(link_detect_thread,(void*)g_server,g_server->g_threadpool);
 }
 
 
 /* ------------------ test dynamic change conf ------------------------- */
 void* monitor_conf_thread(void* args){
-
-	pthread_detach(pthread_self());
-
 	g_broker_para* g_broker = (g_broker_para*)args;
 	char* conf_path = "../conf/test_conf.json";
 	char* p_conf_file = readfile(conf_path);
@@ -99,9 +103,8 @@ void* monitor_conf_thread(void* args){
 	}
 }
 
-void create_monitor_configue_change(g_broker_para* g_broker){
-	pthread_t thread_pid;
-	pthread_create(&thread_pid, NULL, monitor_conf_thread, (void*)(g_broker));
+void create_monitor_configue_change(g_broker_para* g_broker, ThreadPool* g_threadpool){
+	AddWorker(monitor_conf_thread,(void*)g_broker,g_threadpool);
 }
 
 /* -------------------------- main process msg loop --------------------------------------------- */
@@ -122,7 +125,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 	//int num = 0;
 	//addLogTaskToTimer(g_msg_queue, &num, g_timer);
 	create_link_detect(g_server);
-	create_monitor_configue_change(g_broker);
+	create_monitor_configue_change(g_broker, g_threadpool);
 
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -136,13 +139,8 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: msg_number = %d",getData->msg_number);
 
-				int connfd = *((int*)(getData->tmp_data));
-				free(getData->tmp_data);
-
-				user_session_node* new_user = new_user_node(g_server);
-	
-				int ret = CreateRecvThread(new_user->g_receive, g_server->g_msg_queue, connfd, g_server->log_handler);
-
+				user_session_node* new_node = (user_session_node*)getData->tmp_data;
+				add_new_user_node_to_list(new_node, g_server);
 
 				if(g_broker->enableCallback == 0){
 					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register broker callback \n");
@@ -161,11 +159,13 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				break;
 			}
 			/* clear one user all status */
-			case MSG_RECEIVE_THREAD_CLOSED:
+			case MSG_DEL_DISCONNECT_USER:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_DEL_DISCONNECT_USER: msg_number = %d",getData->msg_number);
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				unregisterEvent(tmp_receive->connfd,g_server);
 				
 				del_user(tmp_receive->connfd, g_server, g_broker, g_dma, g_threadpool);
 
@@ -177,14 +177,26 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			case MSG_OPENWRT_CONNECTED:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: msg_number = %d",getData->msg_number);
-
-				user_session_node* new_user = new_user_node(g_server);			
+			
 				if(g_server->openwrt_link == 0){
 					break;
 				}
-				int ret = CreateRecvThread(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_connfd, g_server->log_handler);
+
+				user_session_node* new_user = new_user_node(g_server);
+            	int ret = CreateRecvParam(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_connfd, g_server->log_handler);
+				add_new_user_node_to_list(new_user, g_server);
+				// openwrt_connfd add to epoll? --- 0527
+				// 用pipe 或 eventfd 是常规的做法,我见过的网络库都这么做
+				// may be lose receive info  --- 0527
+
+				uint64_t count; // event_fd need 8 byte !!!
+				memcpy(&count,&new_user,sizeof(void*));
+        		ret = write(g_server->epoll_node.event_fd, &count, sizeof(count));
+				if(ret == -1){
+					del_user(g_server->openwrt_connfd, g_server, g_broker, g_dma, g_threadpool); // fail to add new fd to epoll !!
+				}
 				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback \n");
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback, openwrt_connfd = %d \n", g_server->openwrt_connfd);
 					broker_register_callback_interface(g_broker);
 					g_broker->enableCallback = 1; 
 				}
@@ -196,6 +208,12 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			case MSG_OPENWRT_DISCONNECT:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_DISCONNECT: msg_number = %d",getData->msg_number);
+
+				// add clear recevie param  --- 20200520
+				g_receive_para* g_receive = findReceiveNode(g_server->openwrt_connfd, g_server);
+
+				postMsg(MSG_DEL_DISCONNECT_USER,NULL,0,g_receive,0,g_receive->g_msg_queue);
+
 				break;
 			}
 			/* ----- end process openwrt msg -------*/

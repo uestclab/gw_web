@@ -36,11 +36,9 @@ int get_netlink_status(const char *if_name)
     strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name) - 1);
     ifr.ifr_data = (char *) &edata;
     if (( skfd = socket( AF_INET, SOCK_DGRAM, 0 )) < 0){
-        printf("error socket****\n");
         return -1;
     }
     if(ioctl( skfd, SIOCETHTOOL, &ifr ) < 0){
-        ret = printf("error ioctl****\n");
         close(skfd);
         return ret;
     }

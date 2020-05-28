@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <assert.h>
 #include "tiny_queue.h"
+
+#define COPY_BUFFER     1
+#define NOT_COPY_BUFFER 0
+
 /* write file */
 /**@struct write_file_t
 * @brief 定义存储文件相关资源
@@ -41,7 +45,7 @@ typedef enum msg_event{
 	MSG_OPENWRT_DISCONNECT,
 	/* process new client */
 	MSG_ACCEPT_NEW_USER,
-	MSG_RECEIVE_THREAD_CLOSED,
+	MSG_DEL_DISCONNECT_USER,
 	/* system state */
 	MSG_INQUIRY_SYSTEM_STATE,
 	MSG_SYSTEM_STATE_EXCEPTION,
@@ -125,6 +129,9 @@ typedef enum frame_type{
 	TYPE_CLOSE_TX_POWER,
 	TYPE_OPEN_RX_GAIN,
 	TYPE_CLOSE_RX_GAIN,
+
+	TYPE_OPENWRT_KEEPALIVE = 201,
+	TYPE_OPENWRT_KEEPALIVE_RESPONSE,
 
 }frame_type;
 
