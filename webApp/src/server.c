@@ -19,6 +19,112 @@
 #include "gw_macros_util.h"
 #include "small_utility.h"
 
+// 表驱动
+typedef struct frame_idx_msg 
+{ 
+    int frame_type; 
+    int msg_type; 
+}frame_idx_msg_st;
+frame_idx_msg_st idx_msg[] = 
+{ 
+        {TYPE_SYSTEM_STATE_REQUEST, MSG_INQUIRY_SYSTEM_STATE}, 
+        {TYPE_REG_STATE_REQUEST, MSG_INQUIRY_REG_STATE}, 
+        {TYPE_INQUIRY_RSSI_REQUEST, MSG_INQUIRY_RSSI},
+        {TYPE_START_CSI, MSG_START_CSI},
+        {TYPE_STOP_CSI, MSG_STOP_CSI},
+        {TYPE_START_CONSTELLATION, MSG_START_CONSTELLATION},
+        {TYPE_STOP_CONSTELLATION, MSG_STOP_CONSTELLATION},
+        {TYPE_OPEN_DISTANCE_APP, MSG_OPEN_DISTANCE_APP},
+        {TYPE_CLOSE_DISTANCE_APP, MSG_CLOSE_DISTANCE_APP},
+        {TYPE_OPEN_DAC, MSG_OPEN_DAC},
+        {TYPE_CLOSE_DAC, MSG_CLOSE_DAC},
+        {TYPE_CLEAR_LOG, MSG_CLEAR_LOG},
+        {TYPE_RESET, MSG_RESET_SYSTEM}, 
+        {TYPE_STATISTICS_INFO, MSG_INQUIRY_STATISTICS},
+        {TYPE_RF_INFO, MSG_INQUIRY_RF_INFO},
+        {TYPE_OPEN_TX_POWER, MSG_OPEN_TX_POWER},
+        {TYPE_CLOSE_TX_POWER, MSG_CLOSE_TX_POWER},
+        {TYPE_OPEN_RX_GAIN, MSG_OPEN_RX_GAIN},
+        {TYPE_CLOSE_RX_GAIN, MSG_CLOSE_RX_GAIN},
+        {TYPE_RSSI_CONTROL, MSG_CONTROL_RSSI}, 
+        {TYPE_CONTROL_SAVE_CSI, MSG_CONTROL_SAVE_IQ_DATA}, 
+        {TYPE_IP_SETTING, MSG_IP_SETTING}, 
+        {TYPE_RF_FREQ_SETTING, MSG_RF_FREQ_SETTING}, 
+        {TYPE_OPENWRT_KEEPALIVE, TYPE_OPENWRT_KEEPALIVE_RESPONSE}, 
+};
+
+void process_no_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+    // add frame_type and frame type index search
+    int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
+    for (int i = 0; i < type_num; i++) 
+    { 
+        if (idx_msg[i].frame_type == frame_type) 
+        { 
+            postMsg(idx_msg[i].msg_type, NULL, 0, tmp_data, 0, g_receive->g_msg_queue);
+            return; 
+        } 
+    }
+}
+
+void process_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+    int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
+    for (int i = 0; i < type_num; i++) 
+    { 
+        if (idx_msg[i].frame_type == frame_type) 
+        { 
+            postMsg(idx_msg[i].msg_type, buf, buf_len, tmp_data, 0, g_receive->g_msg_queue);
+            return; 
+        } 
+    }
+}
+
+void fast_response_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+    int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
+    for (int i = 0; i < type_num; i++) 
+    { 
+        if (idx_msg[i].frame_type == frame_type) 
+        { 
+            assemble_frame_and_send(g_receive, NULL, 0, idx_msg[i].msg_type);
+            return; 
+        } 
+    }
+}
+
+
+typedef void (*PROC_MSG_FUN)(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive);
+typedef struct __msg_fun_st 
+{ 
+    const int frame_type;//消息类型 
+    PROC_MSG_FUN fun_ptr;//函数指针 
+}msg_fun_st;
+msg_fun_st msg_flow[] = 
+{ 
+        {TYPE_SYSTEM_STATE_REQUEST, process_no_json_fun}, 
+        {TYPE_REG_STATE_REQUEST, process_no_json_fun}, 
+        {TYPE_INQUIRY_RSSI_REQUEST, process_no_json_fun},
+        {TYPE_START_CSI, process_no_json_fun},
+        {TYPE_STOP_CSI, process_no_json_fun},
+        {TYPE_START_CONSTELLATION, process_no_json_fun},
+        {TYPE_STOP_CONSTELLATION, process_no_json_fun},
+        {TYPE_OPEN_DISTANCE_APP, process_no_json_fun},
+        {TYPE_CLOSE_DISTANCE_APP, process_no_json_fun},
+        {TYPE_OPEN_DAC, process_no_json_fun},
+        {TYPE_CLOSE_DAC, process_no_json_fun},
+        {TYPE_CLEAR_LOG, process_no_json_fun},
+        {TYPE_RESET, process_no_json_fun}, 
+        {TYPE_STATISTICS_INFO, process_no_json_fun},
+        {TYPE_RF_INFO, process_no_json_fun},
+        {TYPE_OPEN_TX_POWER, process_no_json_fun},
+        {TYPE_CLOSE_TX_POWER, process_no_json_fun},
+        {TYPE_OPEN_RX_GAIN, process_no_json_fun},
+        {TYPE_CLOSE_RX_GAIN, process_no_json_fun},
+        {TYPE_RSSI_CONTROL, process_json_fun}, 
+        {TYPE_CONTROL_SAVE_CSI, process_json_fun}, 
+        {TYPE_IP_SETTING, process_json_fun}, 
+        {TYPE_RF_FREQ_SETTING, process_json_fun}, 
+        {TYPE_OPENWRT_KEEPALIVE, fast_response_fun}, 
+};
+
 #define BUFFER_SIZE 1024 * 40
 #define MAX_EVENTS 30
 
@@ -62,63 +168,26 @@ void parseRequestJson(char* request_buf, int request_buf_len, web_msg_t* msg_tmp
     cJSON_Delete(root);
 }
 
-int processMessage(char* buf, int32_t length, g_receive_para* g_receive){
-	int type = myNtohl(buf + 4);
+int processMessage_table_drive(char* buf, int32_t length, g_receive_para* g_receive) 
+{ 
+    int type = myNtohl(buf + 4);
 	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
     web_msg_t* msg_tmp = (web_msg_t*)malloc(sizeof(web_msg_t));
     msg_tmp->point_addr_1 = g_receive;
     parseRequestJson(jsonfile,length-4,msg_tmp);
-
-    if(type == TYPE_SYSTEM_STATE_REQUEST){
-		postMsg(MSG_INQUIRY_SYSTEM_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_REG_STATE_REQUEST){ // json
-		postMsg(MSG_INQUIRY_REG_STATE, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_INQUIRY_RSSI_REQUEST){
-		postMsg(MSG_INQUIRY_RSSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_RSSI_CONTROL){ // save rssi data or not
-		postMsg(MSG_CONTROL_RSSI, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_START_CSI){ // start csi 
-		postMsg(MSG_START_CSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_STOP_CSI){ // stop csi
-		postMsg(MSG_STOP_CSI, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_CONTROL_SAVE_CSI){ // save csi data or not
-		postMsg(MSG_CONTROL_SAVE_IQ_DATA, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_START_CONSTELLATION){ // start constellation
-		postMsg(MSG_START_CONSTELLATION, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_STOP_CONSTELLATION){ // stop constellation
-		postMsg(MSG_STOP_CONSTELLATION, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-	}else if(type == TYPE_OPEN_DISTANCE_APP){ // open distance app
-        postMsg(MSG_OPEN_DISTANCE_APP, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_CLOSE_DISTANCE_APP){ // close distance app
-        postMsg(MSG_CLOSE_DISTANCE_APP, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_OPEN_DAC){ // open dac
-        postMsg(MSG_OPEN_DAC, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_CLOSE_DAC){ // close dac
-        postMsg(MSG_CLOSE_DAC, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_CLEAR_LOG){ // clear log
-        postMsg(MSG_CLEAR_LOG, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_RESET){ // reset board
-        postMsg(MSG_RESET_SYSTEM, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_STATISTICS_INFO){ // request eth and link info
-        postMsg(MSG_INQUIRY_STATISTICS, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_IP_SETTING){ // set ip
-        postMsg(MSG_IP_SETTING, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_RF_INFO){ // request RF info
-        postMsg(MSG_INQUIRY_RF_INFO, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_RF_FREQ_SETTING){
-        postMsg(MSG_RF_FREQ_SETTING, jsonfile, length-4, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_OPEN_TX_POWER){
-        postMsg(MSG_OPEN_TX_POWER, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_CLOSE_TX_POWER){
-        postMsg(MSG_CLOSE_TX_POWER, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_OPEN_RX_GAIN){
-        postMsg(MSG_OPEN_RX_GAIN, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_CLOSE_RX_GAIN){
-        postMsg(MSG_CLOSE_RX_GAIN, NULL, 0, msg_tmp, 0, g_receive->g_msg_queue);
-    }else if(type == TYPE_OPENWRT_KEEPALIVE){
-        assemble_frame_and_send(g_receive, NULL, 0, TYPE_OPENWRT_KEEPALIVE_RESPONSE);
+    
+    int type_num = sizeof(msg_flow) / sizeof(msg_fun_st); 
+    int i = 0;
+    for (i = 0; i < type_num; i++) 
+    { 
+        if (msg_flow[i].frame_type == type) 
+        { 
+            msg_flow[i].fun_ptr(type, jsonfile, length-4, msg_tmp, 0, g_receive); 
+            return 0; 
+        } 
     }
-	return 0;
+    zlog_error(g_receive->log_handler, "unknow error frame type !!! ");
+    return -1;
 }
 
 void receive(g_receive_para* g_receive){
@@ -184,7 +253,7 @@ void receive(g_receive_para* g_receive){
             else// at least one message 
             {
                 //zlog_info(g_receive->log_handler, " fd: %d -- receive() : test 3 --- totalByte = %d \n", g_receive->connfd,totalByte);
-				int ret = processMessage(pStart,msg_len,g_receive);
+				int ret = processMessage_table_drive(pStart,msg_len,g_receive);
 				// move to next message
                 pStart = pStart + msg_len + MinHeaderLen;
                 totalByte = totalByte - msg_len - MinHeaderLen;
