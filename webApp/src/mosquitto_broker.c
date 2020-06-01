@@ -19,18 +19,6 @@ int inquiry_dac_state(){
 	return value;
 }
 
-g_receive_para* findReceiveNode(int connfd, g_broker_para* g_broker){
-	struct user_session_node *pnode = NULL;
-	g_receive_para* tmp_receive = NULL;
-	list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			tmp_receive = pnode->g_receive;
-			break;
-		}
-	}
-	return tmp_receive;
-}
-
 rssi_user_node* findNode(int connfd, g_broker_para* g_broker){
 	struct rssi_user_node *pnode = NULL;
 	struct rssi_user_node *tmp = NULL;
@@ -47,6 +35,8 @@ system_state_t* get_system_state(g_broker_para* g_broker, char* system_str, int 
 	system_state_t* tmp = (system_state_t*)malloc(sizeof(system_state_t));
 	if(system_str != NULL){
 		memcpy(tmp->system_str,system_str,strlen(system_str)+1);
+		tmp->fpga_version = NULL;
+		tmp->soft_version = NULL;
 	}
 	if(ready == 1){
 		tmp->soft_version = c_compiler_builtin_macro();
@@ -112,7 +102,8 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 
 	struct timeval tv;
   	gettimeofday(&tv, NULL);
-	(*g_broker)->start_time        = tv.tv_sec;
+	(*g_broker)->start_time        		  = tv.tv_sec;
+	(*g_broker)->update_acc_time          = 0;
 
 	INIT_LIST_HEAD(&((*g_broker)->rssi_user_node_head));
 	(*g_broker)->rssi_module.rssi_state = 0;
@@ -135,11 +126,21 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 		return -2;
 
 	g_broker_temp = *g_broker;
-	zlog_info(handler,"end createBroker()\n");
-	// self test code 
+
+	// self test code 20200225 add new
 	frequency_rf = 757555;
 	tx_power_state = 0;
 	rx_gain_state = 0;
+
+	local_oscillator_lock_state = 1;
+	rf_temper = 50.6;
+	rf_current = 2.5;
+
+	bb_current = 1.85;
+	device_temper = 52.78;
+	bb_vs = 988.76;
+	adc_temper = 52.90;
+	zynq_temper = 61.5;
 
 	return 0;
 }
@@ -223,9 +224,22 @@ void destoryBroker(g_broker_para* g_broker){
 void parse_system_state(g_receive_para* tmp_receive, char* stat_buf, int stat_buf_len, g_broker_para* g_broker){
 	cJSON * root = NULL;
     cJSON * item = NULL;
+	int is_exception = 0;
+	if(stat_buf_len == 0){
+		g_broker->system_ready = 0;
+		char tmp_str[256];
+		sprintf(tmp_str, "device is not ready , stat_buf_len == 0 \n");
+		zlog_info(g_broker->log_handler,"other msg : %s ", tmp_str);
+		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
+		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
+		assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_RESPONSE);
+		free(response_json);
+		clear_system_state(state);
+		return;
+	}
+
     root = cJSON_Parse(stat_buf);
     item = cJSON_GetObjectItem(root,"stat");
-	int is_exception = 0;
 	if(strcmp(item->valuestring,"0x20") == 0 || strcmp(item->valuestring,"0x80000020") == 0){
 		g_broker->system_ready = 1;
 		// send frame to node js
@@ -237,6 +251,7 @@ void parse_system_state(g_receive_para* tmp_receive, char* stat_buf, int stat_bu
 	}else{
 		g_broker->system_ready = 0;
 		char tmp_str[256];
+		zlog_error(g_broker->log_handler, "stat_buf : %s \n", stat_buf);
 		sprintf(tmp_str, "device is not ready , SystemState not 0x20 !!! %s \n", item->valuestring);
 		zlog_info(g_broker->log_handler,"other msg : %s ", tmp_str);
 		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
@@ -475,25 +490,29 @@ void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker){
 	}
 	double rssi_data = (tmp * 5.0) / 1024;
 	rssi_data = (rssi_data - 0.05) / 0.05 - 69.0;
-
+	// double x2 = rssi_data * rssi_data;
+	// double x3 = x2 * rssi_data;
+	// double x4 = x3 * rssi_data;
+	// double x5 = x4 * rssi_data;
+	// rssi_data = 0.9804*x5 - 10.931*x4 + 46.846*x3 - 96.623*x2 + 115.04*rssi_data - 121.23;
 	char* rssi_data_response_json = rssi_data_response(rssi_data);
-
+	//zlog_info(g_broker->log_handler,"rssi_data : %f \n", rssi_data);
 	struct rssi_user_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_broker->rssi_user_node_head, list) {
-		g_receive_para* tmp_receive = findReceiveNode(pnode->connfd,g_broker);
+		g_receive_para* tmp_receive = findReceiveNode(pnode->connfd,g_broker->g_server);
 		if(tmp_receive != NULL)
 			assemble_frame_and_send(tmp_receive,rssi_data_response_json,strlen(rssi_data_response_json),TYPE_RSSI_DATA_RESPONSE);
 	}
 
 	free(rssi_data_response_json);
 
-	my_log_data(rssi_data,g_broker);
+	//my_log_data(rssi_data,g_broker);
 }
 
 /* ????? */
 void* rssi_write_thread(void* args){
 
-	pthread_detach(pthread_self());
+	//pthread_detach(pthread_self());
 
 	rssi_user_node* tmp_node = (rssi_user_node*)args;
 
@@ -580,8 +599,7 @@ int process_rssi_save_file(int connfd, char* stat_buf, int stat_buf_len, g_broke
 			return -1;
 		}
 
-		pthread_t thread_pid;
-		pthread_create(&thread_pid, NULL, rssi_write_thread, (void*)(tmp_node));
+		AddWorker(rssi_write_thread,(void*)(tmp_node),g_broker->g_server->g_threadpool);
 		tmp_node->rssi_file_t->enable = 1;
 	}
 
@@ -668,46 +686,5 @@ void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker){
 }
 /** @} Rssi*/
 
-
-/* -----------------------   test   --------------------------------------------- */
-void test_process_exception(int state, g_broker_para* g_broker){
-	int is_exception = 1;
-	if(state == 1){	
-		if(g_broker->system_ready == 0){	
-			g_broker->system_ready = 1;	
-			system_state_t* state = get_system_state(g_broker,NULL,g_broker->system_ready);
-			char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
-			struct user_session_node *pnode = NULL;	
-			list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
-				if(pnode->g_receive != NULL){    	
-					assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
-				}	
-			}	
-
-            free(response_json);
-			clear_system_state(state);	
-		}else{	
-            ; // do not inform node.js	
-        }				
-	}else if(state == 0){	
-		g_broker->system_ready = 0;	
-		char tmp_str[256];	
-		sprintf(tmp_str, "device is not ready !");	
-		zlog_info(g_broker->log_handler,"exception other msg : %s ", tmp_str);
-		system_state_t* state = get_system_state(g_broker,tmp_str,g_broker->system_ready);
-		char* response_json = system_state_response(g_broker->system_ready,is_exception,state);	
-
-		struct user_session_node *pnode = NULL;	
-		list_for_each_entry(pnode, &g_broker->g_server->user_session_node_head, list) {	
-			if(pnode->g_receive != NULL){    	
-				assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);	
-			}	
-		}	
-		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));	
-		free(response_json);	
-		/* clear and reset system state variable */	
-		clear_system_state(state);
-	}	
-}
 
 

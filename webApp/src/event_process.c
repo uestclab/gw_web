@@ -5,37 +5,78 @@
 #include "auto_log.h"
 #include "sys_handler.h"
 #include "rf_module.h"
+#include "threadFuncWrapper.h"
+#include "timer.h"
 
 /* test */
 #include "response_json.h"
 #include "md5sum.h"
+#include "utility.h"
 
-void* inquiry_reg_state_loop(void* args){
-	g_receive_para* tmp_receive = (g_receive_para*)args;
-	sleep(1);
-	struct msg_st data;
-	data.msg_type = MSG_INQUIRY_REG_STATE;
-	data.msg_number = MSG_INQUIRY_REG_STATE;
-	data.tmp_data = tmp_receive;
-	data.msg_len = 0;
-	postMsgQueue(&data,tmp_receive->g_msg_queue);
-}
+void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma){
+	zlog_category_t* log_handler = g_server->log_handler;
+	zlog_info(log_handler,"  ---------------- displayManageInfo () --------------------------\n");
+	
+	zlog_info(log_handler,"user_node_cnt = %d \n" , g_server->user_session_cnt);
+	zlog_info(log_handler,"rssi user_cnt = %d \n", g_broker->rssi_module.user_cnt);
+	zlog_info(log_handler,"csi user_cnt = %d \n",g_dma->csi_module.user_cnt);
+	zlog_info(log_handler,"csi save_user_cnt = %d \n",g_dma->csi_module.save_user_cnt);
+	zlog_info(log_handler,"constellation user_cnt = %d \n",g_dma->constellation_module.user_cnt);
 
-void postTmpWorkToThreadPool(g_receive_para* tmp_receive, ThreadPool* g_threadpool){
-	AddWorker(inquiry_reg_state_loop,(void*)tmp_receive,g_threadpool);
+	struct timeval tv;
+  	gettimeofday(&tv, NULL);
+	int64_t end = tv.tv_sec;
+	double acc_sec = end-g_broker->start_time;
+	zlog_info(log_handler, "start = %lld , end = %lld , acc_sec = %lf \n", g_broker->start_time, end, acc_sec);
+	
+	zlog_info(log_handler,"  ---------------- end displayManageInfo () ----------------------\n");
 }
 
 void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- display () --------------------------\n");
 	zlog_info(g_server->log_handler,"user_session_cnt = %d " , g_server->user_session_cnt);
+
+	int user_cnt = 1;
+	struct user_session_node *pnode = NULL;
+	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
+		if(pnode->g_receive != NULL){    
+			zlog_info(g_server->log_handler,"-- %d : user fd =  %d " , user_cnt, pnode->g_receive->connfd);
+			user_cnt = user_cnt + 1;
+		}
+	}
+
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
+/* ------------------ link detect ----------------------------- */
+void* link_detect_thread(void* args){
+	g_server_para* g_server = (g_server_para*)args;
+	int net_stat = -1;
+	while(1){
+		net_stat = get_netlink_status("eth0");
+		//zlog_info(g_server->log_handler, "Net link status: %d\n", net_stat);
+		if(net_stat == 1 && g_server->openwrt_link == 0){
+			int connfd = connect_helloworld();
+			if(connfd > 0){
+				g_server->openwrt_link = 1;
+				g_server->openwrt_connfd = connfd;
+				postMsg(MSG_OPENWRT_CONNECTED,NULL,0,NULL,0,g_server->g_msg_queue);
+			}
+		}else if(net_stat == 0 && g_server->openwrt_link == 1){
+			g_server->openwrt_link = 0;
+			postMsg(MSG_OPENWRT_DISCONNECT,NULL,0,NULL,0,g_server->g_msg_queue);
+		}
+		sleep(2);
+	}
+}
+
+void create_link_detect(g_server_para* g_server){
+	AddWorker(link_detect_thread,(void*)g_server,g_server->g_threadpool);
+}
+
+
 /* ------------------ test dynamic change conf ------------------------- */
 void* monitor_conf_thread(void* args){
-
-	pthread_detach(pthread_self());
-
 	g_broker_para* g_broker = (g_broker_para*)args;
 	char* conf_path = "../conf/test_conf.json";
 	char* p_conf_file = readfile(conf_path);
@@ -62,42 +103,49 @@ void* monitor_conf_thread(void* args){
 	}
 }
 
-void create_monitor_configue_change(g_broker_para* g_broker){
-	pthread_t thread_pid;
-	pthread_create(&thread_pid, NULL, monitor_conf_thread, (void*)(g_broker));
+void create_monitor_configue_change(g_broker_para* g_broker, ThreadPool* g_threadpool){
+	AddWorker(monitor_conf_thread,(void*)g_broker,g_threadpool);
 }
 
 /* -------------------------- main process msg loop --------------------------------------------- */
-
-void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, zlog_category_t* zlog_handler)
+void 
+eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, 
+		g_msg_queue_para* g_msg_queue, ThreadPool* g_threadpool, event_timer_t* g_timer, zlog_category_t* zlog_handler)
 {
+
+	record_str_t* g_record = (record_str_t*)malloc(sizeof(record_str_t));
+
+	init_record_str(g_record);
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
 
-	create_monitor_configue_change(g_broker);
+	addTimeOutWorkToTimer(g_msg_queue,g_timer);
+
+	//int num = 0;
+	//addLogTaskToTimer(g_msg_queue, &num, g_timer);
+	create_link_detect(g_server);
+	create_monitor_configue_change(g_broker, g_threadpool);
+
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
-		if(getData == NULL)
+		if(getData == NULL){
+			zlog_info(zlog_handler," getMsgQueue : getData == NULL \n");
 			continue;
-		
+		}
+		web_msg_t* tmp_web = NULL;
 		switch(getData->msg_type){
 			case MSG_ACCEPT_NEW_USER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: msg_number = %d",getData->msg_number);
 
-				int connfd = *((int*)(getData->tmp_data));
-				free(getData->tmp_data);
-
-				user_session_node* new_user = new_user_node(g_server);
-	
-				int ret = CreateRecvThread(new_user->g_receive, g_server->g_msg_queue, connfd, g_server->log_handler);
-
+				user_session_node* new_node = (user_session_node*)getData->tmp_data;
+				add_new_user_node_to_list(new_node, g_server);
 
 				if(g_broker->enableCallback == 0){
 					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register broker callback \n");
 					broker_register_callback_interface(g_broker);
-					g_broker->enableCallback = 1;
+					g_broker->enableCallback = 1; 
 				}
 
 				if(g_dma->enableCallback == 0){
@@ -111,11 +159,13 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				break;
 			}
 			/* clear one user all status */
-			case MSG_RECEIVE_THREAD_CLOSED:
+			case MSG_DEL_DISCONNECT_USER:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_RECEIVE_THREAD_CLOSED: msg_number = %d",getData->msg_number);
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_DEL_DISCONNECT_USER: msg_number = %d",getData->msg_number);
 
 				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				unregisterEvent(tmp_receive->connfd,g_server);
 				
 				del_user(tmp_receive->connfd, g_server, g_broker, g_dma, g_threadpool);
 
@@ -123,13 +173,87 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				break;
 			}
+			/* process openwrt msg */
+			case MSG_OPENWRT_CONNECTED:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: msg_number = %d",getData->msg_number);
+			
+				if(g_server->openwrt_link == 0){
+					break;
+				}
+
+				user_session_node* new_user = new_user_node(g_server);
+            	int ret = CreateRecvParam(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_connfd, g_server->log_handler);
+				add_new_user_node_to_list(new_user, g_server);
+				// openwrt_connfd add to epoll? --- 0527
+				// 用pipe 或 eventfd 是常规的做法,我见过的网络库都这么做
+				// may be lose receive info  --- 0527
+
+				uint64_t count; // event_fd need 8 byte !!!
+				memcpy(&count,&new_user,sizeof(void*));
+        		ret = write(g_server->epoll_node.event_fd, &count, sizeof(count));
+				if(ret == -1){
+					del_user(g_server->openwrt_connfd, g_server, g_broker, g_dma, g_threadpool); // fail to add new fd to epoll !!
+				}
+				if(g_broker->enableCallback == 0){
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback, openwrt_connfd = %d \n", g_server->openwrt_connfd);
+					broker_register_callback_interface(g_broker);
+					g_broker->enableCallback = 1; 
+				}
+				
+				display(g_server);
+
+				break;
+			}
+			case MSG_OPENWRT_DISCONNECT:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_DISCONNECT: msg_number = %d",getData->msg_number);
+
+				// add clear recevie param  --- 20200520
+				g_receive_para* g_receive = findReceiveNode(g_server->openwrt_connfd, g_server);
+
+				postMsg(MSG_DEL_DISCONNECT_USER,NULL,0,g_receive,0,g_receive->g_msg_queue);
+
+				break;
+			}
+			/* ----- end process openwrt msg -------*/
 			case MSG_INQUIRY_SYSTEM_STATE:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_SYSTEM_STATE: msg_number = %d",getData->msg_number);
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-
+				// add new json parse to distinguish different terminal and terminal system time
 				inquiry_system_state(tmp_receive,g_broker);
+
+				// update device system time at inital access
+				if(g_server->update_system_time){
+					struct timeval tv;
+					gettimeofday(&tv, NULL);
+					g_broker->update_acc_time = tv.tv_sec - g_broker->start_time;
+
+					if(tmp_web->buf_data_len != 0){
+						changeSystemTime(tmp_web->currentTime);
+					}else{
+						changeSystemTime("2000-03-06 14:40:00");
+					}
+					g_server->update_system_time = 0;
+					gettimeofday(&tv, NULL);
+					g_broker->start_time = tv.tv_sec;
+					zlog_info(zlog_handler,"update device system time \n");
+				}
+
+				struct user_session_node *pnode = NULL;
+				pnode = find_user_node_by_connfd(tmp_receive->connfd, g_server);
+				if(pnode != NULL){
+					if(pnode->user_ip == NULL){
+						pnode->user_ip = malloc(64);
+						memcpy(pnode->user_ip,tmp_web->localIP,strlen(tmp_web->localIP)+1);
+					}
+				}
+
+				zlog_info(zlog_handler,"localIp = %s \n", tmp_web->localIP);
+
 				break;
 			}
 			case MSG_SYSTEM_STATE_EXCEPTION: // clear system state variable
@@ -143,21 +267,45 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_TIMEOUT:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT: msg_number = %d",getData->msg_number);
+
+				//monitorManageInfo(g_server, g_broker, g_dma);
+
+				addTimeOutWorkToTimer(g_msg_queue,g_timer);
+
+				break;
+			}
+			case MSG_TIMEOUT_TEST:
+			{
+				
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT_TEST: msg_number = %d",getData->msg_number);
+
+				// struct LogTaskTimer_t* tmp = (struct LogTaskTimer_t*)(getData->tmp_data);
+
+				// int tmp_num = *(tmp->cnt_num);
+				// zlog_info(zlog_handler,"*****************  num = %d \n",tmp_num);
+
+				// addLogTaskToTimer(g_msg_queue, tmp->cnt_num, g_timer);
+
+				// free(tmp);
+
 				break;
 			}
 			case MSG_INQUIRY_REG_STATE:
 			{
-				//zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_REG_STATE: msg_number = %d",getData->msg_number);
-				
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				inquiry_reg_state(tmp_receive, g_broker);
+				
 				break;
 			}
 			case MSG_INQUIRY_RSSI: // open rssi
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RSSI: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				/* open rssi */
 				int ret = open_rssi_state_external(tmp_receive->connfd, g_broker);
 				/* record open rssi : when check return */
@@ -182,7 +330,9 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CONTROL_RSSI: // rssi save enable or not
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_RSSI: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				int ret = process_rssi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len,g_broker);
 				/* record rssi save cmd : if check return of process_rssi_save_file() ?*/
@@ -190,7 +340,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 					record_rssi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
 				}
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive ,ret);
+				send_cmd_state(g_server, tmp_receive ,ret, g_record->constrol_rssi_succ);
 				break;
 			}
 			case MSG_CLEAR_RSSI_WRITE_STATUS: // case 2 : if not close save rssi manually, this event must be behind MSG_RECEIVE_THREAD_CLOSED
@@ -201,11 +351,6 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				clear_rssi_write_status(tmp_node,g_broker);
 
-				break;
-			}
-			case MSG_INQUIRY_RF_MF_STATE:
-			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_MF_STATE: msg_number = %d",getData->msg_number);
 				break;
 			}
 			case MSG_CONF_CHANGE: // for self test
@@ -231,17 +376,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				struct user_session_node *pnode = NULL;
 				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 					if(pnode->g_receive != NULL){
-						if(state_id == 11 && cmd == 11){
-							state_cnt = 1;
-							postMsg(MSG_RESET_SYSTEM, NULL, 0, pnode->g_receive, 0, pnode->g_receive->g_msg_queue);
-						}else if(state_id == 22 && cmd == 22){
-							state_cnt = 0;
-						}			
+						if(state_id == 11){
+							;
+						}else if(state_id == 22){
+							;
+						}
+						break;			
 					}
 				}
 
-
-				//test_process_exception(state_cnt, g_broker);
 				cJSON_Delete(root);
 				free(p_conf_file);
 
@@ -250,13 +393,14 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_START_CSI:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CSI: msg_number = %d",getData->msg_number);
-
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				/* check mutex with constell */
 				int state = check_constell_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CSI_MUTEX);
+					send_cmd_state(g_server,tmp_receive ,CSI_MUTEX, g_record->start_csi_mutex);
 					break;
 				}
 
@@ -267,7 +411,8 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 				}
 
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive ,state);
+				send_cmd_state(g_server,tmp_receive ,state, g_record->start_csi_succ);
+
 
 				break;
 			}
@@ -275,14 +420,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CSI: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				stop_csi_state_external(tmp_receive->connfd, g_dma);
 
 				record_csi_start_enable(tmp_receive->connfd, STOP, g_server);
 
 				/* inform node js cmd state */
-				send_cmd_state(tmp_receive,CMD_OK);
+				send_cmd_state(g_server,tmp_receive,CMD_OK,g_record->stop_csi_succ);
 
 				break;
 			}
@@ -309,12 +455,13 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_START_CONSTELLATION: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				/* check mutex with csi */
 				int state = check_csi_working(g_server);
 				if(state == 1){
-					send_cmd_state(tmp_receive ,CONSTELL_MUTEX);
+					send_cmd_state(g_server,tmp_receive ,CONSTELL_MUTEX, g_record->start_constell_mutex);
 					break;
 				}
 
@@ -322,7 +469,7 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 
 				record_constell_start_enable(tmp_receive->connfd, START, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->start_constell_succ);
 
 				break;
 			}
@@ -330,13 +477,14 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_STOP_CONSTELLATION: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
 				stop_constellation_external(tmp_receive->connfd, g_dma);
 
 				record_constell_start_enable(tmp_receive->connfd, STOP, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->stop_csi_succ);
 
 				break;
 			}
@@ -355,14 +503,15 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_CONTROL_SAVE_IQ_DATA:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONTROL_SAVE_IQ_DATA: msg_number = %d",getData->msg_number);
-
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
 				process_csi_save_file(tmp_receive->connfd, getData->msg_json,getData->msg_len, g_dma);
 
 				record_csi_save_enable(tmp_receive->connfd, getData->msg_json, getData->msg_len, g_server);
 
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->csi_save_succ);
 
 				break;
 			}
@@ -379,112 +528,169 @@ void eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_d
 			case MSG_OPEN_DISTANCE_APP:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DISTANCE_APP: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("sh /tmp/gw_app/distance/conf/open_app.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_distance_succ);
 				break;
 			}
 			case MSG_CLOSE_DISTANCE_APP:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DISTANCE_APP: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("sh /tmp/gw_app/distance/conf/close_app.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK,g_record->close_distance_succ);
 				break;
 			}
 			case MSG_OPEN_DAC:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_DAC: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				system("echo 1 > /sys/class/gpio/gpio973/value");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_dac_succ);
 				break;
 			}
 			case MSG_CLOSE_DAC:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_DAC: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
+
 				system("echo 0 > /sys/class/gpio/gpio973/value");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_dac_succ);
 				break;
 			}
 			case MSG_CLEAR_LOG:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLEAR_LOG: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
+
 				system("sh /tmp/web/conf/clear_log.sh");
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->clear_log_succ);
 				break;
 			}
 			case MSG_RESET_SYSTEM:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-				send_cmd_state(tmp_receive ,CMD_OK);
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->reset_sys_succ);
 				system("reboot");
 				break;
 			}
 			case MSG_INQUIRY_STATISTICS:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
 				inquiry_statistics(tmp_receive, g_broker);
 				break;
 			}
 			case MSG_IP_SETTING:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_IP_SETTING: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
 				int ret = process_ip_setting(getData->msg_json, getData->msg_len,g_broker->log_handler);
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK,g_record->ip_setting_succ);
 				break;
 			}
 			case MSG_INQUIRY_RF_INFO:
 			{
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
-				inquiry_rf_info(tmp_receive, g_broker);
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;		
+
+				int user_node_id = find_user_node_id(tmp_receive->connfd, g_server);
+				//zlog_info(zlog_handler," ---------------- EVENT : MSG_INQUIRY_RF_INFO: start time user_id = %d", user_node_id);
+				postRfWorkToThreadPool(user_node_id, g_broker, g_threadpool);
+				break;
+			}
+			case MST_RF_INFO_READY: // bug : 0302 --- MST_RF_INFO_READY may after MSG_RECEIVE_THREAD_CLOSED
+			{
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				int tmp_node_id = tmp_web->arg_1;
+				char* response_json = tmp_web->buf_data;	
+
+				//zlog_info(g_broker->log_handler,"rf_info_response : %s \n", response_json);
+				struct user_session_node* tmp_node = find_user_node_by_user_id(tmp_node_id, g_server);
+				if(tmp_node != NULL){
+					int ret = assemble_frame_and_send(tmp_node->g_receive,response_json,strlen(response_json),TYPE_RF_INFO_RESPONSE);
+				}
+				free(response_json);
+				//zlog_info(zlog_handler," ********************* EVENT : MST_RF_INFO_READY: End Time user_id = %d", tmp_node_id);
 				break;
 			}
 			case MSG_RF_FREQ_SETTING:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_RF_FREQ_SETTING: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
 				int ret = process_rf_freq_setting(getData->msg_json, getData->msg_len,g_broker);
 				break;
 			}
 			case MSG_OPEN_TX_POWER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_TX_POWER: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;	
+
 				int ret = open_tx_power();
-				send_cmd_state(tmp_receive ,CMD_OK);
+
+				zlog_info(zlog_handler, "TX _ POWER : %s \n", g_record->open_txpower_succ);
+
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_txpower_succ);
 				break;
 			}
 			case MSG_CLOSE_TX_POWER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_TX_POWER: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;
+
 				int ret = close_tx_power();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_txpower_succ);
 				break;
 			}
 			case MSG_OPEN_RX_GAIN:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPEN_RX_GAIN: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+				
 				int ret = rx_gain_high();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_rxgain_succ);
 				break;
 			}
 			case MSG_CLOSE_RX_GAIN:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CLOSE_RX_GAIN: msg_number = %d",getData->msg_number);
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				tmp_web = (web_msg_t*)getData->tmp_data;
+				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
+
 				int ret = rx_gain_normal();
-				send_cmd_state(tmp_receive ,CMD_OK);
+				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_rxgain_succ);
 				break;
 			}
 			default:
 				break;
 		}// end switch
+		if(tmp_web != NULL){
+			free(tmp_web);
+		}
 		free(getData);
 	}// end while(1)
 }
@@ -522,20 +728,20 @@ void del_user(int connfd, g_server_para* g_server, g_broker_para* g_broker, g_dm
 	// free node
 	release_receive_resource(tmp_node->g_receive);
 	free(tmp_node->record_action);
+	free(tmp_node->user_ip);
 	free(tmp_node);
 }
 
 /* ------------------------------ rssi record function ---------------------------- */
 
 void record_rssi_enable(int connfd, g_server_para* g_server){
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_rssi = 1;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
-            break;
-        }
-    }
+
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_rssi = 1;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi = 1 \n", connfd);
+	}
 }
 
 int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_server_para* g_server){
@@ -557,29 +763,24 @@ int record_rssi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serv
 		rssi_save = 1;
 	}
 
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_rssi_save = rssi_save;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
-            break;
-        }
-    }
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_rssi_save = rssi_save;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_rssi_save = %d \n", connfd, rssi_save);
+	}
 
 	cJSON_Delete(root);
 	return 0;
 }
 
 /* --------------------------------- csi record function ------------------------------------------ */
-
 void record_csi_start_enable(int connfd, int enable, g_server_para* g_server){
 	struct user_session_node *pnode = NULL;
-	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			pnode->record_action->enable_start_csi = enable;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_start_csi = %d \n", connfd, enable);
-            break;
-		}
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_start_csi = enable;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_start_csi = %d \n", connfd, enable);
 	}
 }
 
@@ -602,14 +803,12 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 		csi_save = 1;
 	}
 
-    struct user_session_node *pnode = NULL;
-    list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-        if(pnode->g_receive->connfd == connfd){    
-            pnode->record_action->enable_csi_save = csi_save;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
-            break;
-        }
-    }
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_csi_save = csi_save;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_csi_save = %d \n", connfd, csi_save);
+	}
 
 	cJSON_Delete(root);
 	return 0;
@@ -617,13 +816,12 @@ int record_csi_save_enable(int connfd, char* stat_buf, int stat_buf_len, g_serve
 
 /* --------------------------------- constellation record function ------------------------------------------ */
 void record_constell_start_enable(int connfd, int enable, g_server_para* g_server){
+
 	struct user_session_node *pnode = NULL;
-	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-		if(pnode->g_receive->connfd == connfd){
-			pnode->record_action->enable_start_constell = enable;
-			zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
-            break;
-		}
+	pnode = find_user_node_by_connfd(connfd, g_server);
+	if(pnode != NULL){
+		pnode->record_action->enable_start_constell = enable;
+		zlog_info(g_server->log_handler,"connfd = %d , enable_start_constell = %d \n", connfd, enable);
 	}
 }
 
@@ -633,7 +831,7 @@ void record_constell_start_enable(int connfd, int enable, g_server_para* g_serve
 #define CMD_FAIL -1
 #define CSI_MUTEX 2
 #define CONSTELL_MUTEX 3
-void send_cmd_state(g_receive_para* g_receive ,int state){
+void send_cmd_state(g_server_para* g_server, g_receive_para* g_receive ,int state, char* record_str){
 	int cmd_state = CMD_FAIL;
 	if(state == CMD_OK){
 		cmd_state = CMD_OK;
@@ -643,7 +841,15 @@ void send_cmd_state(g_receive_para* g_receive ,int state){
 		cmd_state = CONSTELL_MUTEX;
 	}
 	
-	char *cmd_state_response_json = cmd_state_response(cmd_state);
+	char tmp_record[256];
+	struct user_session_node *pnode = NULL;
+	pnode = find_user_node_by_connfd(g_receive->connfd, g_server);
+	if(pnode != NULL){
+		sprintf(tmp_record, "%s : %s", pnode->user_ip, record_str);
+	}else{
+		sprintf(tmp_record, "No user : %s", record_str);
+	}
+	char *cmd_state_response_json = cmd_state_response(cmd_state,tmp_record);
 	assemble_frame_and_send(g_receive,cmd_state_response_json,strlen(cmd_state_response_json),TYPE_CMD_STATE_RESPONSE);
 	free(cmd_state_response_json);
 }

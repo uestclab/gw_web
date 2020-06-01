@@ -3,6 +3,35 @@
 #include "small_utility.h"
 #include "rf_module.h"
 
+void init_record_str(record_str_t* record){
+    
+    sprintf(record->constrol_rssi_succ, "open rssi success");
+    sprintf(record->constrol_rssi_fail, "open rssi fail");
+    sprintf(record->start_csi_succ, "start csi success");
+    sprintf(record->start_csi_fail, "start csi fail");
+    sprintf(record->start_csi_mutex, "start csi confict with constelltion");
+    sprintf(record->stop_csi_succ, "stop csi success");
+    sprintf(record->stop_csi_fail, "stop csi fail");
+    sprintf(record->start_constell_succ, "start constell success");
+    sprintf(record->start_constell_fail, "start constell fail");
+    sprintf(record->start_constell_mutex, "start constelltion confict with csi");
+    sprintf(record->stop_constell_succ, "stop constell success");
+    sprintf(record->stop_constell_fail, "stop constell fail");
+    sprintf(record->csi_save_succ, "save csi success");
+    sprintf(record->csi_save_fail, "save csi fail");
+    sprintf(record->open_distance_succ, "open distance success");
+    sprintf(record->close_distance_succ, "close distance success");
+    sprintf(record->open_dac_succ, "open dac success");
+    sprintf(record->close_dac_succ, "close dac success");
+    sprintf(record->clear_log_succ, "clear log success");
+    sprintf(record->reset_sys_succ, "reset system success");
+    sprintf(record->ip_setting_succ, "ip setting success");
+    sprintf(record->open_txpower_succ, "open txpower success");
+    sprintf(record->close_txpower_succ, "close txpower success");
+    sprintf(record->open_rxgain_succ, "open rxgain success");
+    sprintf(record->close_rxgain_succ, "close rxgain success");
+
+}
 
 
 char* system_state_response(int is_ready, int is_exception, system_state_t* tmp_system_state){
@@ -324,20 +353,20 @@ char* constell_data_response(int *vectReal, int *vectImag, int len){
     return constell_data_response_json;
 }
 
-char* cmd_state_response(int state){
+char* cmd_state_response(int state, char* record_str){
     char* cmd_state_response_json = NULL;
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "comment", "cmd_state_response_json");
     cJSON_AddNumberToObject(root, "type", TYPE_CMD_STATE_RESPONSE);
     cJSON_AddNumberToObject(root, "cmd_state",state);
+    cJSON_AddStringToObject(root, "record_str", record_str);
 
     cmd_state_response_json = cJSON_Print(root);
     cJSON_Delete(root);
     return cmd_state_response_json;
 }
 
-
-char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t* handler){
+char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,int64_t update_acc_time,zlog_category_t* handler){
     char* response_json = NULL;
     int arry_num = 0;
     uint32_t value = 0;
@@ -431,8 +460,8 @@ char* statistics_response(g_RegDev_para* g_RegDev,int64_t start,zlog_category_t*
     struct timeval tv;
   	gettimeofday(&tv, NULL);
 	int64_t end = tv.tv_sec;
-	double acc_sec = end-start;
-    //zlog_info(handler, "start = %lld , end = %lld , acc_sec = %lf \n", start, end, acc_sec);
+	double acc_sec = end-start + update_acc_time;
+    //zlog_info(handler, "start = %lld , end = %lld , acc_sec = %lf , update_acc_time = lld \n", start, end, acc_sec, update_acc_time);
     cJSON_AddNumberToObject(obj_1, "value",acc_sec);
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
@@ -477,9 +506,58 @@ char* rf_info_response(g_RegDev_para* g_RegDev,zlog_category_t* handler){
     cJSON_AddItemToArray(array,obj_1);
     arry_num++;
 
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","local_lock_state");
+    cJSON_AddNumberToObject(obj_1, "value",get_local_oscillator_lock_state(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rf_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_rf_temper());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","rf_current");
+    cJSON_AddNumberToObject(obj_1, "value",get_rf_current(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","bb_current");
+    cJSON_AddNumberToObject(obj_1, "value",get_bb_current());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","device_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_device_temper(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","bb_vs");
+    cJSON_AddNumberToObject(obj_1, "value",get_bb_vs());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","adc_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_adc_temper());
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
+    obj_1=cJSON_CreateObject();
+    cJSON_AddStringToObject(obj_1, "name","zynq_temper");
+    cJSON_AddNumberToObject(obj_1, "value",get_zynq_temper(handler));
+    cJSON_AddItemToArray(array,obj_1);
+    arry_num++;
+
     cJSON_AddNumberToObject(root, "array_number", arry_num);
     cJSON_AddItemToObject(root,"ret_value",array);
     response_json = cJSON_Print(root);
     cJSON_Delete(root);
     return response_json;   
 }
+

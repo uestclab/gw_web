@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <assert.h>
 #include "tiny_queue.h"
+
+#define COPY_BUFFER     1
+#define NOT_COPY_BUFFER 0
+
 /* write file */
 /**@struct write_file_t
 * @brief 定义存储文件相关资源
@@ -35,10 +39,13 @@ typedef enum msg_event{
 	MSG_AIR,
 	MSG_MONITOR,
 	MSG_TIMEOUT,
+	MSG_TIMEOUT_TEST,
 	MSG_CONF_CHANGE,
+	MSG_OPENWRT_CONNECTED,
+	MSG_OPENWRT_DISCONNECT,
 	/* process new client */
 	MSG_ACCEPT_NEW_USER,
-	MSG_RECEIVE_THREAD_CLOSED,
+	MSG_DEL_DISCONNECT_USER,
 	/* system state */
 	MSG_INQUIRY_SYSTEM_STATE,
 	MSG_SYSTEM_STATE_EXCEPTION,
@@ -49,8 +56,6 @@ typedef enum msg_event{
 	MSG_RSSI_READY_AND_SEND,
 	MSG_CONTROL_RSSI,
 	MSG_CLEAR_RSSI_WRITE_STATUS,
-	/* RF state request */
-	MSG_INQUIRY_RF_MF_STATE,
 	/* csi and constellation */
 	MSG_START_CSI,
 	MSG_STOP_CSI,
@@ -72,8 +77,11 @@ typedef enum msg_event{
 	MSG_RESET_SYSTEM,
 	MSG_INQUIRY_STATISTICS,
 	MSG_IP_SETTING,
+	/* RF state request */
 	MSG_INQUIRY_RF_INFO,
+	MST_RF_INFO_READY,
 	MSG_RF_FREQ_SETTING,
+	/* SETTING CMD */
 	MSG_OPEN_TX_POWER,
 	MSG_CLOSE_TX_POWER,
 	MSG_OPEN_RX_GAIN,
@@ -121,6 +129,9 @@ typedef enum frame_type{
 	TYPE_CLOSE_TX_POWER,
 	TYPE_OPEN_RX_GAIN,
 	TYPE_CLOSE_RX_GAIN,
+
+	TYPE_OPENWRT_KEEPALIVE = 201,
+	TYPE_OPENWRT_KEEPALIVE_RESPONSE,
 
 }frame_type;
 

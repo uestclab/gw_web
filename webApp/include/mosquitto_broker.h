@@ -34,6 +34,7 @@ typedef struct rssi_module_t{
 typedef struct g_broker_para{
     int                system_ready; // device state
 	int64_t            start_time;
+	int64_t            update_acc_time;
 	int                enableCallback;
 	g_msg_queue_para*  g_msg_queue;
 	g_server_para*     g_server;
@@ -88,6 +89,5 @@ void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker)
 
 
 /* test */
-void test_process_exception(int state, g_broker_para* g_broker);
  
 #endif//MOSQUITTO_BROKER_H
