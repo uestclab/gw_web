@@ -489,12 +489,15 @@ void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker){
 		tmp = tmp + 1024;
 	}
 	double rssi_data = (tmp * 5.0) / 1024;
+#ifdef HARD_VERSION_RFV2 
 	rssi_data = (rssi_data - 0.05) / 0.05 - 69.0;
-	// double x2 = rssi_data * rssi_data;
-	// double x3 = x2 * rssi_data;
-	// double x4 = x3 * rssi_data;
-	// double x5 = x4 * rssi_data;
-	// rssi_data = 0.9804*x5 - 10.931*x4 + 46.846*x3 - 96.623*x2 + 115.04*rssi_data - 121.23;
+#else
+	double x2 = rssi_data * rssi_data;
+	double x3 = x2 * rssi_data;
+	double x4 = x3 * rssi_data;
+	double x5 = x4 * rssi_data;
+	rssi_data = 0.9804*x5 - 10.931*x4 + 46.846*x3 - 96.623*x2 + 115.04*rssi_data - 121.23;
+#endif
 	char* rssi_data_response_json = rssi_data_response(rssi_data);
 	//zlog_info(g_broker->log_handler,"rssi_data : %f \n", rssi_data);
 	struct rssi_user_node *pnode = NULL;

@@ -7,6 +7,9 @@
 #include <assert.h>
 #include "tiny_queue.h"
 
+// hardware version 
+// #define HARD_VERSION_RFV2
+
 #define COPY_BUFFER     1
 #define NOT_COPY_BUFFER 0
 
