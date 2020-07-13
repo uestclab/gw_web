@@ -69,5 +69,8 @@ int connect_helloworld(){
             return sock_cli;
         }
     }
+
+    close(sock_cli);
+
     return -1;
 }
