@@ -7,6 +7,7 @@
 #include "rf_module.h"
 #include "threadFuncWrapper.h"
 #include "timer.h"
+#include "openwrt.h"
 
 /* test */
 #include "response_json.h"
@@ -48,30 +49,34 @@ void display(g_server_para* g_server){
 	zlog_info(g_server->log_handler,"  ---------------- end display () ----------------------\n");
 }
 
-/* ------------------ link detect ----------------------------- */
-void* link_detect_thread(void* args){
+/* ------------------ link probe openwrt ----------------------------- */
+void* link_probe_thread(void* args){
 	g_server_para* g_server = (g_server_para*)args;
 	int net_stat = -1;
 	while(1){
 		net_stat = get_netlink_status("eth0");
-		//zlog_info(g_server->log_handler, "Net link status: %d\n", net_stat);
-		if(net_stat == 1 && g_server->openwrt_link == 0){
+		if(net_stat == 1){
+			/*
+				手持模块通过交换机接入，网口一直都在, 断开不能判断 ..... 
+			*/
 			int connfd = connect_helloworld();
 			if(connfd > 0){
-				g_server->openwrt_link = 1;
-				g_server->openwrt_connfd = connfd;
-				postMsg(MSG_OPENWRT_CONNECTED,NULL,0,NULL,0,g_server->g_msg_queue);
+				postMsg(MSG_OPENWRT_CONNECTED,NULL,0,NULL,connfd,g_server->g_msg_queue);
+				break;
 			}
-		}else if(net_stat == 0 && g_server->openwrt_link == 1){
-			g_server->openwrt_link = 0;
-			postMsg(MSG_OPENWRT_DISCONNECT,NULL,0,NULL,0,g_server->g_msg_queue);
 		}
-		sleep(2);
+		sleep(1);
 	}
 }
 
-void create_link_detect(g_server_para* g_server){
-	AddWorker(link_detect_thread,(void*)g_server,g_server->g_threadpool);
+void create_probe_task(g_server_para* g_server){
+	AddWorker(link_probe_thread,(void*)g_server,g_server->g_threadpool);
+}
+
+void openwrt_disconnect_process(g_server_para* g_server){
+	zlog_info(g_server->log_handler," openwrt disconnected !!!!!!!!!!!!!!!!!!!!!!!!!!! ");
+	g_server->openwrt_node.openwrt_connfd = -1;
+	create_probe_task(g_server);
 }
 
 
@@ -122,9 +127,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 	addTimeOutWorkToTimer(g_msg_queue,g_timer);
 
-	//int num = 0;
-	//addLogTaskToTimer(g_msg_queue, &num, g_timer);
-	create_link_detect(g_server);
+	create_probe_task(g_server);
 	create_monitor_configue_change(g_broker, g_threadpool);
 
 	while(1){
@@ -159,15 +162,22 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				break;
 			}
 			/* clear one user all status */
+			/*
+				潜在问题：设备网口在运行过程中拔掉，web没法正确检测到连接中断，比如rssi，IQ这些就无法关闭 
+			*/
 			case MSG_DEL_DISCONNECT_USER:
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_DEL_DISCONNECT_USER: msg_number = %d",getData->msg_number);
 
-				g_receive_para* tmp_receive = (g_receive_para*)getData->tmp_data;
+				int del_connfd = getData->tmp_data_len;
 
-				unregisterEvent(tmp_receive->connfd,g_server);
+				if(del_connfd == g_server->openwrt_node.openwrt_connfd){
+					openwrt_disconnect_process(g_server);
+				}
+
+				unregisterEvent(del_connfd,g_server);
 				
-				del_user(tmp_receive->connfd, g_server, g_broker, g_dma, g_threadpool);
+				del_user(del_connfd, g_server, g_broker, g_dma, g_threadpool);
 
 				display(g_server);
 
@@ -178,12 +188,10 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: msg_number = %d",getData->msg_number);
 			
-				if(g_server->openwrt_link == 0){
-					break;
-				}
+				g_server->openwrt_node.openwrt_connfd = getData->tmp_data_len;
 
 				user_session_node* new_user = new_user_node(g_server);
-            	int ret = CreateRecvParam(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_connfd, g_server->log_handler);
+            	int ret = CreateRecvParam(new_user->g_receive, g_server->g_msg_queue, g_server->openwrt_node.openwrt_connfd, g_server->log_handler);
 				add_new_user_node_to_list(new_user, g_server);
 				// openwrt_connfd add to epoll? --- 0527
 				// 用pipe 或 eventfd 是常规的做法,我见过的网络库都这么做
@@ -193,27 +201,24 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				memcpy(&count,&new_user,sizeof(void*));
         		ret = write(g_server->epoll_node.event_fd, &count, sizeof(count));
 				if(ret == -1){
-					del_user(g_server->openwrt_connfd, g_server, g_broker, g_dma, g_threadpool); // fail to add new fd to epoll !!
+					del_user(g_server->openwrt_node.openwrt_connfd, g_server, g_broker, g_dma, g_threadpool); // fail to add new fd to epoll !!
 				}
 				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback, openwrt_connfd = %d \n", g_server->openwrt_connfd);
+					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback \n");
 					broker_register_callback_interface(g_broker);
 					g_broker->enableCallback = 1; 
 				}
+
+				openwrt_start_keepAlive(g_server,g_server->openwrt_node.openwrt_connfd);
 				
 				display(g_server);
 
 				break;
 			}
-			case MSG_OPENWRT_DISCONNECT:
+			case MSG_PRIORITY_KEEPALIVE:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_DISCONNECT: msg_number = %d",getData->msg_number);
-
-				// add clear recevie param  --- 20200520
-				g_receive_para* g_receive = findReceiveNode(g_server->openwrt_connfd, g_server);
-
-				postMsg(MSG_DEL_DISCONNECT_USER,NULL,0,g_receive,0,g_receive->g_msg_queue);
-
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_PRIORITY_KEEPALIVE: msg_number = %d",getData->msg_number);
+				openwrt_start_keepAlive(g_server,getData->tmp_data_len);
 				break;
 			}
 			/* ----- end process openwrt msg -------*/
@@ -262,6 +267,15 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				process_exception(getData->msg_json,getData->msg_len,g_broker);
 
+				if(g_broker->system_ready == 0){
+					g_server->happen_exception = 1;
+				}else{
+					if(g_server->happen_exception){
+						open_rssi_state_for_exception(g_broker);
+						g_server->happen_exception = 0;
+					}
+				}
+
 				break;
 			}
 			case MSG_TIMEOUT:
@@ -278,15 +292,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			{
 				
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_TIMEOUT_TEST: msg_number = %d",getData->msg_number);
-
-				// struct LogTaskTimer_t* tmp = (struct LogTaskTimer_t*)(getData->tmp_data);
-
-				// int tmp_num = *(tmp->cnt_num);
-				// zlog_info(zlog_handler,"*****************  num = %d \n",tmp_num);
-
-				// addLogTaskToTimer(g_msg_queue, tmp->cnt_num, g_timer);
-
-				// free(tmp);
 
 				break;
 			}
@@ -315,9 +320,10 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				break;
 			}
+			/* 系统异常后，rssi内部关闭，系统恢复后，重新外部打开rssi */
 			case MSG_RSSI_READY_AND_SEND:
 			{
-				//zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
+				// zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
 
 				/* send rssi to node.js for display */
 				send_rssi_in_event_loop(getData->msg_json, getData->msg_len, g_broker);
@@ -371,20 +377,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				int state_id = item->valueint;
 				item = cJSON_GetObjectItem(root,"cmd");
 				int cmd = item->valueint;
-
-				int state_cnt = -1;
-				struct user_session_node *pnode = NULL;
-				list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
-					if(pnode->g_receive != NULL){
-						if(state_id == 11){
-							;
-						}else if(state_id == 22){
-							;
-						}
-						break;			
-					}
-				}
-
 				cJSON_Delete(root);
 				free(p_conf_file);
 
@@ -854,6 +846,7 @@ void send_cmd_state(g_server_para* g_server, g_receive_para* g_receive ,int stat
 	free(cmd_state_response_json);
 }
 
+/* 待修改：用某个链表信息记录下来，节省遍历 */
 int check_constell_working(g_server_para* g_server){
 	int state = -1;
     struct user_session_node *tmp_node = NULL;

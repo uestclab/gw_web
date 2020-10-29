@@ -18,6 +18,9 @@
 #include "web_common.h"
 #include "gw_macros_util.h"
 #include "small_utility.h"
+#include "utility.h"
+#include "timer.h"
+#include "openwrt.h"
 
 // 表驱动
 typedef struct frame_idx_msg 
@@ -50,10 +53,10 @@ frame_idx_msg_st idx_msg[] =
         {TYPE_CONTROL_SAVE_CSI, MSG_CONTROL_SAVE_IQ_DATA}, 
         {TYPE_IP_SETTING, MSG_IP_SETTING}, 
         {TYPE_RF_FREQ_SETTING, MSG_RF_FREQ_SETTING}, 
-        {TYPE_OPENWRT_KEEPALIVE, TYPE_OPENWRT_KEEPALIVE_RESPONSE}, 
+        {TYPE_OPENWRT_KEEPALIVE, TYPE_OPENWRT_KEEPALIVE_RESPONSE}, // fast response and check by timer
 };
 
-void process_no_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+void process_no_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive, void* pri_ptr){
     // add frame_type and frame type index search
     int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
     for (int i = 0; i < type_num; i++) 
@@ -66,7 +69,7 @@ void process_no_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data,
     }
 }
 
-void process_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+void process_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive, void* pri_ptr){
     int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
     for (int i = 0; i < type_num; i++) 
     { 
@@ -78,20 +81,33 @@ void process_json_fun(int frame_type, char *buf, int buf_len, void* tmp_data, in
     }
 }
 
-void fast_response_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive){
+/* openwrt keepAlive check */
+void fast_keepalive_response_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive, void* pri_ptr){
     int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
     for (int i = 0; i < type_num; i++) 
     { 
         if (idx_msg[i].frame_type == frame_type) 
         { 
-            assemble_frame_and_send(g_receive, NULL, 0, idx_msg[i].msg_type);
+            assemble_frame_and_send(g_receive, NULL, 0, idx_msg[i].msg_type); // 无风险，对方发送过快，收到消息也在accept之后，g_receive已经准备就绪
+
             return; 
         } 
     }
 }
 
+void process_keepalive_response_fun(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive, void* pri_ptr){
+    int type_num = sizeof(idx_msg) / sizeof(frame_idx_msg_st); 
+    if (TYPE_OPENWRT_KEEPALIVE_RESPONSE == frame_type) 
+    { 
+        int connfd =  g_receive->connfd; // 待修改传入方式
+        g_server_para* g_server = (g_server_para*)pri_ptr;
+        setOpenwrtState(g_server);
 
-typedef void (*PROC_MSG_FUN)(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive);
+        return; 
+    } 
+}
+
+typedef void (*PROC_MSG_FUN)(int frame_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_receive_para* g_receive, void* pri_ptr);
 typedef struct __msg_fun_st 
 { 
     const int frame_type;//消息类型 
@@ -122,7 +138,8 @@ msg_fun_st msg_flow[] =
         {TYPE_CONTROL_SAVE_CSI, process_json_fun}, 
         {TYPE_IP_SETTING, process_json_fun}, 
         {TYPE_RF_FREQ_SETTING, process_json_fun}, 
-        {TYPE_OPENWRT_KEEPALIVE, fast_response_fun}, 
+        {TYPE_OPENWRT_KEEPALIVE, fast_keepalive_response_fun}, 
+        {TYPE_OPENWRT_KEEPALIVE_RESPONSE, process_keepalive_response_fun},
 };
 
 #define BUFFER_SIZE 1024 * 40
@@ -168,7 +185,7 @@ void parseRequestJson(char* request_buf, int request_buf_len, web_msg_t* msg_tmp
     cJSON_Delete(root);
 }
 
-int processMessage_table_drive(char* buf, int32_t length, g_receive_para* g_receive) 
+int processMessage_table_drive(char* buf, int32_t length, g_receive_para* g_receive, void* pri_ptr) 
 { 
     int type = myNtohl(buf + 4);
 	char* jsonfile = buf + sizeof(int32_t) + sizeof(int32_t);
@@ -182,7 +199,7 @@ int processMessage_table_drive(char* buf, int32_t length, g_receive_para* g_rece
     { 
         if (msg_flow[i].frame_type == type) 
         { 
-            msg_flow[i].fun_ptr(type, jsonfile, length-4, msg_tmp, 0, g_receive); 
+            msg_flow[i].fun_ptr(type, jsonfile, length-4, msg_tmp, 0, g_receive, pri_ptr); 
             return 0; 
         } 
     }
@@ -190,7 +207,7 @@ int processMessage_table_drive(char* buf, int32_t length, g_receive_para* g_rece
     return -1;
 }
 
-void receive(g_receive_para* g_receive){
+void receive(g_receive_para* g_receive, void* pri_ptr){
     int size = 0;
     int totalByte = 0;
     int msg_len = 0;
@@ -208,7 +225,7 @@ void receive(g_receive_para* g_receive){
                 //zlog_info(g_receive->log_handler, "exit receive_NO_READ_WORK +++++++++++++++++ : %d ", g_receive->connfd);
             }else{
                 // error 
-                zlog_error(g_receive->log_handler, "errro test 1 : errno = %d \n", errno);
+                zlog_error(g_receive->log_handler, "errro test 1 : errno = %d , %s \n", errno, strerror(errno));
                 g_receive->working = SOCKET_CLOSE;
             }
         }
@@ -253,7 +270,7 @@ void receive(g_receive_para* g_receive){
             else// at least one message 
             {
                 //zlog_info(g_receive->log_handler, " fd: %d -- receive() : test 3 --- totalByte = %d \n", g_receive->connfd,totalByte);
-				int ret = processMessage_table_drive(pStart,msg_len,g_receive);
+				int ret = processMessage_table_drive(pStart,msg_len,g_receive,pri_ptr);
 				// move to next message
                 pStart = pStart + msg_len + MinHeaderLen;
                 totalByte = totalByte - msg_len - MinHeaderLen;
@@ -270,11 +287,11 @@ void process_recv_event(g_receive_para* g_receive, g_server_para* g_server){
     //zlog_info(g_receive->log_handler, " process_recv_event() : start -----------------------------  \n");
     g_receive->working = WORKING;
     while(g_receive->working == WORKING){
-    	receive(g_receive);
+    	receive(g_receive, (void*)g_server);
     }
 
     if(g_receive->working == SOCKET_CLOSE){
-        postMsg(MSG_DEL_DISCONNECT_USER,NULL,0,g_receive,0,g_receive->g_msg_queue);
+        postMsg(MSG_DEL_DISCONNECT_USER,NULL,0,NULL,g_receive->connfd,g_receive->g_msg_queue);
     }
     //zlog_info(g_receive->log_handler, " process_recv_event() : end -----------  \n");
 }
@@ -364,16 +381,21 @@ void* runEpollServer(void* args){
 * - 0          上报成功
 * - 非0        上报失败
 */
-int CreateServerThread(g_server_para** g_server_tmp, ThreadPool* g_threadpool, g_msg_queue_para* g_msg_queue, zlog_category_t* handler){
+int CreateServerThread(g_server_para** g_server_tmp, ThreadPool* g_threadpool, g_msg_queue_para* g_msg_queue, 
+                    event_timer_t* g_timer, zlog_category_t* handler){
     *g_server_tmp = (g_server_para*)malloc(sizeof(struct g_server_para));
     g_server_para* g_server = *g_server_tmp;
     g_server->listenfd     = 0;
     g_server->g_threadpool = g_threadpool;
 	g_server->g_msg_queue  = g_msg_queue;
+    g_server->g_timer      = g_timer;
 	g_server->log_handler  = handler;
     g_server->update_system_time = 0;
-    g_server->openwrt_link = 0;
-    g_server->openwrt_connfd = 0;
+    g_server->happen_exception = 0;
+
+    g_server->openwrt_node.openwrt_connfd = -1;
+    g_server->openwrt_node.openwrt_link   = 0;
+    pthread_mutex_init(&(g_server->openwrt_node.mutex),NULL);	
 
     INIT_LIST_HEAD(&(g_server->user_session_node_head));
 	g_server->user_session_cnt    = 0;
@@ -425,7 +447,7 @@ int CreateServerThread(g_server_para** g_server_tmp, ThreadPool* g_threadpool, g
     memset(&servaddr,0,sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(55055);
+    servaddr.sin_port = htons(TCP_LISTEN_PORT);
  
     if( bind(g_server->listenfd,(struct sockaddr*)&servaddr,sizeof(servaddr)) == -1)
     {
@@ -585,6 +607,7 @@ void release_receive_resource(g_receive_para* g_receive){
 * - 0          上报成功
 * - 非0        上报失败
 */
+/* 待修改 ：sendbuf使用临时的 */
 int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, int type){
     //zlog_info(g_receive->log_handler," buf : %s",buf);
     if(g_receive == NULL){
@@ -605,6 +628,8 @@ int assemble_frame_and_send(g_receive_para* g_receive, char* buf, int buf_len, i
     int ret = send(g_receive->connfd, temp_buf, length, 0);
     if(ret != length){
         zlog_info(g_receive->log_handler,"ret = %d" , ret);
+        pthread_mutex_unlock(&(g_receive->send_mutex));
+        return -1;
     }
 
     if(TYPE_SYSTEM_STATE_RESPONSE == type || TYPE_SYSTEM_STATE_EXCEPTION == type){

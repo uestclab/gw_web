@@ -78,6 +78,7 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
 
 /* rssi */
 void send_rssi_in_event_loop(char* buf, int buf_len, g_broker_para* g_broker);
+int open_rssi_state_for_exception(g_broker_para* g_broker);
 int open_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external
 int close_rssi_state_external(int connfd, g_broker_para* g_broker); // control by external 
 int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker); // control by internal

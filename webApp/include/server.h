@@ -16,6 +16,9 @@
 #include <linux/sockios.h>
 #include "list.h"
 #include "ThreadPool.h"
+#include "event_timer.h"
+
+#define TCP_LISTEN_PORT 55055
 
 /**@struct record_action_t
 * @brief 记录新接入用户请求操作动作
@@ -66,25 +69,36 @@ typedef struct epoll_event_node{
 	int 				event_fd;
 }epoll_event_node;
 
+typedef struct openwrt_node_t{
+	pthread_mutex_t    mutex;
+	int                openwrt_link;
+	int                openwrt_connfd;
+}openwrt_node_t;
+
+
 /**@struct g_server_para
 * @brief 网络管理新接入用户模块依赖资源
 */
 typedef struct g_server_para{
 	ThreadPool*        g_threadpool;
 	g_msg_queue_para*  g_msg_queue;
-	int                openwrt_link;
-	int                openwrt_connfd;
+	event_timer_t* 	   g_timer;
+	openwrt_node_t     openwrt_node;
+	int                happen_exception;
 	int                update_system_time;
 	epoll_event_node   epoll_node;
 	int                listenfd;
+	/* user node session */
 	int                user_node_id_init;
 	int                user_session_cnt;
-	struct list_head   user_session_node_head;
+	struct list_head   user_session_node_head; // add mutex for user node list
+	/* log */
 	zlog_category_t*   log_handler;
 }g_server_para;
 
 
-int CreateServerThread(g_server_para** g_server_tmp, ThreadPool* g_threadpool, g_msg_queue_para* g_msg_queue, zlog_category_t* handler);
+int CreateServerThread(g_server_para** g_server_tmp, 
+                       ThreadPool* g_threadpool, g_msg_queue_para* g_msg_queue, event_timer_t* g_timer, zlog_category_t* handler);
 int CreateRecvParam(g_receive_para* g_receive, g_msg_queue_para* g_msg_queue, int sock_cli, zlog_category_t* handler);
 int unregisterEvent(int fd, g_server_para* g_server);
 

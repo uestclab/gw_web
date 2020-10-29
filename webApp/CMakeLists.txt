@@ -58,12 +58,6 @@ if(${PUBLIC} STREQUAL "ON") # arm
 	target_link_libraries(${PROJECT_NAME} cst)
 	target_link_libraries(${PROJECT_NAME} mosquitto)
 	target_link_libraries(${PROJECT_NAME} gwapp)
-	#target_link_libraries(${PROJECT_NAME} gw_regdev)
-	#target_link_libraries(${PROJECT_NAME} gw_utility)
-	#target_link_libraries(${PROJECT_NAME} gw_frame)
-	#target_link_libraries(${PROJECT_NAME} gw_control)
-	#target_link_libraries(${PROJECT_NAME} gw_threadpool)
-	#target_link_libraries(${PROJECT_NAME} gw_msgQueue)
 
 endif(${PUBLIC} STREQUAL "ON")
 

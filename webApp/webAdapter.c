@@ -157,7 +157,7 @@ int main(int argc,char** argv)
 
 	/* server thread */
 	g_server_para* g_server = NULL;
-	state = CreateServerThread(&g_server, g_threadpool, g_msg_queue, zlog_handler);
+	state = CreateServerThread(&g_server, g_threadpool, g_msg_queue, g_timer, zlog_handler);
 	if(state == -1 || g_server == NULL){
 		zlog_info(zlog_handler,"No server thread created \n");
 		return 0;

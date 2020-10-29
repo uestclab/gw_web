@@ -161,8 +161,6 @@ int main(){
     }
   }
 
-  // sleep(4);
-
 
   // Join all the threads
   for (i=0; i < NUMTHREADS; i++) {

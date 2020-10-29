@@ -197,11 +197,11 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
 				assemble_frame_and_send(pnode->g_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_EXCEPTION);
 			}
 		}
-		zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));
+		// zlog_info(g_broker->log_handler,"response_json: %s \n length = %d ", response_json, strlen(response_json));
 		free(response_json);
 		/* clear and reset system state variable */
 		/* ???????????? */
-		auto_save_alarm_log(&logc, tmp_str, strlen(tmp_str)+1, LOG_RADIO_EXCEPTION);
+		// auto_save_alarm_log(&logc, tmp_str, strlen(tmp_str)+1, LOG_RADIO_EXCEPTION);
 		clear_system_state(state);
 	}
 	cJSON_Delete(root);
@@ -388,7 +388,7 @@ int inquiry_reg_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 */
 
 int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
-	zlog_info(g_broker->log_handler,"rssi json = %s \n",buf);
+	// zlog_info(g_broker->log_handler,"rssi json = %s \n",buf);
 	int ret = -1;
 	char* stat_buf = NULL;
 	int stat_buf_len = 0;
@@ -406,7 +406,7 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 			g_broker->rssi_module.rssi_state = 0;
 		else
 			g_broker->rssi_module.rssi_state = 1;
-		zlog_info(g_broker->log_handler,"rssi_state = %d \n, rssi return json = %s \n", g_broker->rssi_module.rssi_state, stat_buf);
+		// zlog_info(g_broker->log_handler,"rssi_state = %d \n, rssi return json = %s \n", g_broker->rssi_module.rssi_state, stat_buf);
 
 		cJSON *ret_root = cJSON_Parse(stat_buf);
 		cJSON *ret_item = cJSON_GetObjectItem(ret_root,"stat");
@@ -424,6 +424,18 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
 	return ret;
 }
 
+int open_rssi_state_for_exception(g_broker_para* g_broker){
+	int ret = -1;
+	if(g_broker->rssi_module.user_cnt > 0 && g_broker->rssi_module.rssi_state == 1){
+		zlog_info(g_broker->log_handler,"open_rssi_state_for_exception() \n");
+		ret = control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
+		if(ret != 0){
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 	int ret = -1;
 	if(g_broker->rssi_module.user_cnt == 0 && g_broker->rssi_module.rssi_state == 0){
@@ -433,6 +445,17 @@ int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 			return -1;
 		}
 	}
+
+	/* 
+		潜在问题：手持收到设备状态exception后，又会发送打开rssi 操作，在gw_web端会有2个rssi node 
+		未详细测试
+	*/
+	rssi_user_node* tmp_node = findNode(connfd, g_broker);
+	if(tmp_node != NULL){
+		zlog_info(g_broker->log_handler,"repeat user node in rssi open ! connfd = %d", connfd);
+        return 0;
+	}
+	
 
     rssi_user_node* new_node = (rssi_user_node*)malloc(sizeof(rssi_user_node));
 	new_node->g_broker = g_broker;

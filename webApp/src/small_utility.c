@@ -21,6 +21,9 @@ void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_
 	if(msg_type == MSG_CONF_CHANGE){
 		level = -1;
 	}
+	if(msg_type == MSG_PRIORITY_KEEPALIVE){
+		level = -2;
+	}
 	postMsgQueue(data,level,g_msg_queue);
 }
 
