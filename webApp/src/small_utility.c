@@ -348,130 +348,130 @@ void changeSystemTime(char* time_str){
 
 /* --- tmp ---- */
 /* i2c interface */
-int i2cset(const char* dev, const char* addr, const char* reg, int size, const char* data){
-	int     ret = -1;
-	char*   jsonfile = NULL;
-	char*   stat_buf = NULL;
-	int     stat_buf_len = 0;
-	cJSON * root = NULL; 
-	cJSON * item = NULL;
-	cJSON * array = NULL;
-	cJSON * arrayobj = NULL;
+// int i2cset(const char* dev, const char* addr, const char* reg, int size, const char* data){
+// 	int     ret = -1;
+// 	char*   jsonfile = NULL;
+// 	char*   stat_buf = NULL;
+// 	int     stat_buf_len = 0;
+// 	cJSON * root = NULL; 
+// 	cJSON * item = NULL;
+// 	cJSON * array = NULL;
+// 	cJSON * arrayobj = NULL;
 	
-	root = cJSON_CreateObject();
-	cJSON_AddStringToObject(root, "dev", dev); // "/dev/i2c-0" , "/dev/i2c-1"
+// 	root = cJSON_CreateObject();
+// 	cJSON_AddStringToObject(root, "dev", dev); // "/dev/i2c-0" , "/dev/i2c-1"
 
-	cJSON_AddStringToObject(root, "addr", addr);
-	cJSON_AddStringToObject(root, "force", "0x1");
-	cJSON_AddStringToObject(root, "dst", "rf");
-	array=cJSON_CreateArray();
-	cJSON_AddItemToObject(root,"op_cmd",array);
+// 	cJSON_AddStringToObject(root, "addr", addr);
+// 	cJSON_AddStringToObject(root, "force", "0x1");
+// 	cJSON_AddStringToObject(root, "dst", "rf");
+// 	array=cJSON_CreateArray();
+// 	cJSON_AddItemToObject(root,"op_cmd",array);
 
-	arrayobj=cJSON_CreateObject();
-	cJSON_AddItemToArray(array,arrayobj);
-	cJSON_AddStringToObject(arrayobj, "_comment","R0");
-	cJSON_AddStringToObject(arrayobj, "cmd","1"); // i2cset
-	cJSON_AddStringToObject(arrayobj, "reg",reg);
-	if(size == 0)
-		cJSON_AddStringToObject(arrayobj, "size","0");
-	else if(size == 1){
-		cJSON_AddStringToObject(arrayobj, "size","1");
-		cJSON_AddStringToObject(arrayobj, "data",data); // "0x00"
-	}
+// 	arrayobj=cJSON_CreateObject();
+// 	cJSON_AddItemToArray(array,arrayobj);
+// 	cJSON_AddStringToObject(arrayobj, "_comment","R0");
+// 	cJSON_AddStringToObject(arrayobj, "cmd","1"); // i2cset
+// 	cJSON_AddStringToObject(arrayobj, "reg",reg);
+// 	if(size == 0)
+// 		cJSON_AddStringToObject(arrayobj, "size","0");
+// 	else if(size == 1){
+// 		cJSON_AddStringToObject(arrayobj, "size","1");
+// 		cJSON_AddStringToObject(arrayobj, "data",data); // "0x00"
+// 	}
 
-	jsonfile = cJSON_Print(root);
-	item = cJSON_GetObjectItem(root,"dst");
-	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
+// 	jsonfile = cJSON_Print(root);
+// 	item = cJSON_GetObjectItem(root,"dst");
+// 	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
 
-	cJSON_Delete(root);
-	root = NULL;
-	free(jsonfile);
+// 	cJSON_Delete(root);
+// 	root = NULL;
+// 	free(jsonfile);
 
-	if(ret == 0 && stat_buf_len > 0){
+// 	if(ret == 0 && stat_buf_len > 0){
 
-		root = cJSON_Parse(stat_buf);
-		item = cJSON_GetObjectItem(root,"stat");
+// 		root = cJSON_Parse(stat_buf);
+// 		item = cJSON_GetObjectItem(root,"stat");
 
-		if(strcmp(item->valuestring,"0") != 0){
-			;//zlog_info(g_broker->log_handler,"i2cset ----- buf_json = %s\n",stat_buf);
-		}
+// 		if(strcmp(item->valuestring,"0") != 0){
+// 			;//zlog_info(g_broker->log_handler,"i2cset ----- buf_json = %s\n",stat_buf);
+// 		}
 
-		cJSON_Delete(root);
-		root = NULL;
-		free(stat_buf);
-	}
+// 		cJSON_Delete(root);
+// 		root = NULL;
+// 		free(stat_buf);
+// 	}
 	
-	return 0;
-}
+// 	return 0;
+// }
 
-char* i2cget(const char* dev, const char* addr, const char* reg, int size){
-	int     ret = -1;
-	char*   jsonfile = NULL;
-	char*   stat_buf = NULL;
-	int     stat_buf_len = 0;
-	cJSON * root = NULL; 
-	cJSON * item = NULL;
-	cJSON * array = NULL;
-	cJSON * arrayobj = NULL;
-	char *  ret_return = NULL;
+// char* i2cget(const char* dev, const char* addr, const char* reg, int size){
+// 	int     ret = -1;
+// 	char*   jsonfile = NULL;
+// 	char*   stat_buf = NULL;
+// 	int     stat_buf_len = 0;
+// 	cJSON * root = NULL; 
+// 	cJSON * item = NULL;
+// 	cJSON * array = NULL;
+// 	cJSON * arrayobj = NULL;
+// 	char *  ret_return = NULL;
 
-	root = cJSON_CreateObject();
-	cJSON_AddStringToObject(root, "dev", dev);
-	cJSON_AddStringToObject(root, "addr", addr);
-	cJSON_AddStringToObject(root, "force", "0x1");
-	cJSON_AddStringToObject(root, "dst", "rf");
-	array=cJSON_CreateArray();
-	cJSON_AddItemToObject(root,"op_cmd",array);
+// 	root = cJSON_CreateObject();
+// 	cJSON_AddStringToObject(root, "dev", dev);
+// 	cJSON_AddStringToObject(root, "addr", addr);
+// 	cJSON_AddStringToObject(root, "force", "0x1");
+// 	cJSON_AddStringToObject(root, "dst", "rf");
+// 	array=cJSON_CreateArray();
+// 	cJSON_AddItemToObject(root,"op_cmd",array);
 
-	arrayobj=cJSON_CreateObject();
-	cJSON_AddItemToArray(array,arrayobj);
-	cJSON_AddStringToObject(arrayobj, "_comment","R0");
-	cJSON_AddStringToObject(arrayobj, "cmd","0"); // i2cget
-	cJSON_AddStringToObject(arrayobj, "reg",reg);
-	if(size == 1)
-		cJSON_AddStringToObject(arrayobj, "size","1");
-	else if(size == 2)
-		cJSON_AddStringToObject(arrayobj, "size","2");
+// 	arrayobj=cJSON_CreateObject();
+// 	cJSON_AddItemToArray(array,arrayobj);
+// 	cJSON_AddStringToObject(arrayobj, "_comment","R0");
+// 	cJSON_AddStringToObject(arrayobj, "cmd","0"); // i2cget
+// 	cJSON_AddStringToObject(arrayobj, "reg",reg);
+// 	if(size == 1)
+// 		cJSON_AddStringToObject(arrayobj, "size","1");
+// 	else if(size == 2)
+// 		cJSON_AddStringToObject(arrayobj, "size","2");
 
-	jsonfile = cJSON_Print(root);
-	item = cJSON_GetObjectItem(root,"dst");
-	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
+// 	jsonfile = cJSON_Print(root);
+// 	item = cJSON_GetObjectItem(root,"dst");
+// 	ret = dev_transfer(jsonfile,strlen(jsonfile), &stat_buf, &stat_buf_len, item->valuestring, -1);
 
-	cJSON_Delete(root);
-	root = NULL;
-	free(jsonfile);
+// 	cJSON_Delete(root);
+// 	root = NULL;
+// 	free(jsonfile);
 
-	if(ret == 0 && stat_buf_len > 0){
+// 	if(ret == 0 && stat_buf_len > 0){
 
-		cJSON * arry_return = NULL;
+// 		cJSON * arry_return = NULL;
 
-		root = cJSON_Parse(stat_buf);
-		item = cJSON_GetObjectItem(root,"stat");
-		if(strcmp(item->valuestring,"0") != 0){
-			;//zlog_info(g_broker->log_handler,"i2cget ----- buf_json = %s\n",stat_buf);
-			cJSON_Delete(root);
-			root = NULL;
-			free(stat_buf);
-			return NULL;
-		}
+// 		root = cJSON_Parse(stat_buf);
+// 		item = cJSON_GetObjectItem(root,"stat");
+// 		if(strcmp(item->valuestring,"0") != 0){
+// 			;//zlog_info(g_broker->log_handler,"i2cget ----- buf_json = %s\n",stat_buf);
+// 			cJSON_Delete(root);
+// 			root = NULL;
+// 			free(stat_buf);
+// 			return NULL;
+// 		}
 
-		arry_return = cJSON_GetObjectItem(root,"return");
-		if(NULL != arry_return){
-			cJSON* temp_list = arry_return->child;
-			while(temp_list != NULL){
-				char * ret_tmp   = cJSON_GetObjectItem( temp_list , "ret")->valuestring;
-				temp_list = temp_list->next;
-				ret_return = malloc(32);
-				memcpy(ret_return,ret_tmp,strlen(ret_tmp)+1);
-			}
-		}
-		cJSON_Delete(root);
-		root = NULL;
-		free(stat_buf);
-	}
+// 		arry_return = cJSON_GetObjectItem(root,"return");
+// 		if(NULL != arry_return){
+// 			cJSON* temp_list = arry_return->child;
+// 			while(temp_list != NULL){
+// 				char * ret_tmp   = cJSON_GetObjectItem( temp_list , "ret")->valuestring;
+// 				temp_list = temp_list->next;
+// 				ret_return = malloc(32);
+// 				memcpy(ret_return,ret_tmp,strlen(ret_tmp)+1);
+// 			}
+// 		}
+// 		cJSON_Delete(root);
+// 		root = NULL;
+// 		free(stat_buf);
+// 	}
 	
-	return ret_return;
-}
+// 	return ret_return;
+// }
 
 /* ------------------- process i2c result ------------------------ */
 //此处会得到两个字节的结果，取高10bit；注意该结果高8位先出，低8位后出

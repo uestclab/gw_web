@@ -127,7 +127,7 @@ int start_constellation_external(int connfd, g_dma_para* g_dma);
 int stop_constellation_external(int connfd, g_dma_para* g_dma);
 void send_constell_display_in_event_loop(g_dma_para* g_dma);
 
-void processConstellation(char* buf, int buf_len, g_dma_para* g_dma);
+int processConstellation(char* buf, int buf_len, g_dma_para* g_dma);
 
 #endif//DMA_HANDLER_H
 

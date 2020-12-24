@@ -271,7 +271,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 					g_server->happen_exception = 1;
 				}else{
 					if(g_server->happen_exception){
-						open_rssi_state_for_exception(g_broker);
+						// open_rssi_state_for_exception(g_broker);
 						g_server->happen_exception = 0;
 					}
 				}
@@ -483,12 +483,12 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			case MSG_CONSTELLATION_READY:
 			{
 				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
-
 				/* process IQ data */
-				processConstellation(getData->tmp_data, getData->tmp_data_len, g_dma);
-
-				/* send IQ data to display */
-				send_constell_display_in_event_loop(g_dma);
+				int ret = processConstellation(getData->tmp_data, getData->tmp_data_len, g_dma);
+				if(ret == 0){
+					/* send IQ data to display */
+					send_constell_display_in_event_loop(g_dma);
+				}
 
 				break;
 			}
@@ -546,7 +546,9 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				tmp_web = (web_msg_t*)getData->tmp_data;
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;				
 
-				system("echo 1 > /sys/class/gpio/gpio973/value");
+				// system("echo 1 > /sys/class/gpio/gpio973/value");
+				system("echo 1 > /sys/class/gpio/gpio1002/value");
+				system("echo 1 > /sys/class/gpio/gpio1003/value");
 				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->open_dac_succ);
 				break;
 			}
@@ -557,7 +559,9 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				tmp_web = (web_msg_t*)getData->tmp_data;
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
-				system("echo 0 > /sys/class/gpio/gpio973/value");
+				// system("echo 0 > /sys/class/gpio/gpio973/value");
+				system("echo 0 > /sys/class/gpio/gpio1002/value");
+				system("echo 0 > /sys/class/gpio/gpio1003/value");
 				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->close_dac_succ);
 				break;
 			}

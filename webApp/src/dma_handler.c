@@ -49,7 +49,7 @@ int IQ_register_callback(char* buf, int buf_len, void* arg)
 {
 	g_dma_para* g_dma = (g_dma_para*)arg;
 
-	usleep(100000);
+	usleep(10000);
 
 	g_dma->csi_module.slow_cnt = 0;
 
@@ -525,7 +525,7 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 			assemble_frame_and_send(tmp_receive,constell_data_response_json,strlen(constell_data_response_json),TYPE_CONSTELLATION_DATA_RESPONSE + 1);
 		}
 	}
-
+	g_dma->cons_iq_pair->iq_cnt = 0;
 	free(constell_data_response_json);	
 }
 /** @} Constell*/
@@ -551,8 +551,8 @@ void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
 /**@defgroup Constell constell_process_module.
 * @{
 	*/
-void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
-	g_dma->cons_iq_pair->iq_cnt = 0;
+int processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
+	// g_dma->cons_iq_pair->iq_cnt = 0;
 
 	// find I data --- 0 : I , 1 : Q 
 	int start_idx = 0;
@@ -562,14 +562,15 @@ void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 		start_idx = start_idx + 1;
 		if(checkIQ(buf[start_idx]) == 1){
 			zlog_error(g_dma->log_handler,"Error in IQ sequence \n ");
-			return;
+			return -1;
 		}
 	}
 	if((buf_len - start_idx)%2 == 1)
 		end_idx = buf_len - 1;
 	
 	int i=0;
-	int iq_cnt = 0;
+	int iq_cnt = g_dma->cons_iq_pair->iq_cnt;
+	int sum_cnt = 0;
 	int sw_temp = 0;
 	for(i=start_idx;i<end_idx;i++){
 		//zlog_info(g_dma->log_handler, "buf[i] = %d", buf[i]);
@@ -586,8 +587,14 @@ void processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 			g_dma->cons_iq_pair->vectImag[iq_cnt] = value_i;
 			sw_temp = 0;
 			iq_cnt = iq_cnt + 1;
+			sum_cnt = sum_cnt + 1;
 		}
 	}
-	g_dma->cons_iq_pair->iq_cnt = iq_cnt;
+	g_dma->cons_iq_pair->iq_cnt = g_dma->cons_iq_pair->iq_cnt + sum_cnt;
+	if(g_dma->cons_iq_pair->iq_cnt > 1500){
+		return 0;
+	}else{
+		return 1;
+	}
 }
 /** @} Constell*/

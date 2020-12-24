@@ -15,7 +15,7 @@ g_broker_para* g_broker_temp = NULL;
 
 /* ----------------------- common use ------------------------- */
 int inquiry_dac_state(){
-	int value = gpio_read(973);
+	int value = gpio_read(1002);
 	return value;
 }
 
@@ -120,10 +120,10 @@ int createBroker(char *argv, g_broker_para** g_broker, g_server_para* g_server, 
 
     inquiry_system_json(*g_broker);
 
-	int ret = init_broker(get_prog_name(argv), NULL, -1, NULL, NULL);
-	zlog_info(handler,"get_prog_name(argv) = %s , ret = %d \n",get_prog_name(argv),ret);
-	if( ret != 0)
-		return -2;
+	// int ret = init_broker(get_prog_name(argv), NULL, -1, NULL, NULL);
+	// zlog_info(handler,"get_prog_name(argv) = %s , ret = %d \n",get_prog_name(argv),ret);
+	// if( ret != 0)
+	// 	return -2;
 
 	g_broker_temp = *g_broker;
 
@@ -208,17 +208,28 @@ void process_exception(char* stat_buf, int stat_buf_len, g_broker_para* g_broker
 }
 
 int broker_register_callback_interface(g_broker_para* g_broker){
-	int ret = register_callback("all", inform_exception, "#");
-	if(ret != 0){
-		zlog_error(g_broker->log_handler,"register_callback error in initBroker\n");
-		return -1;
-	}
+	// int ret = register_callback("all", inform_exception, "#");
+	// if(ret != 0){
+	// 	zlog_error(g_broker->log_handler,"register_callback error in initBroker\n");
+	// 	return -1;
+	// }
 	return 0;
 }
 
 void destoryBroker(g_broker_para* g_broker){
-	close_broker();
+	// close_broker();
 	free(g_broker);
+}
+
+void tmp_system_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
+	g_broker->system_ready = 1;
+	int is_exception = 0;
+	// send frame to node js
+	system_state_t* state = get_system_state(g_broker,NULL,g_broker->system_ready);
+	char* response_json = system_state_response(g_broker->system_ready,is_exception,state);
+	assemble_frame_and_send(tmp_receive,response_json,strlen(response_json),TYPE_SYSTEM_STATE_RESPONSE);
+	free(response_json);
+	clear_system_state(state);
 }
 
 void parse_system_state(g_receive_para* tmp_receive, char* stat_buf, int stat_buf_len, g_broker_para* g_broker){
@@ -277,10 +288,14 @@ int inquiry_system_state(g_receive_para* tmp_receive, g_broker_para* g_broker){
 	cJSON * item_type = NULL;
     root = cJSON_Parse(buf);
     item = cJSON_GetObjectItem(root,"dst");
-	ret = dev_transfer(buf, buf_len, &stat_buf, &stat_buf_len, "mon", -1);
+	// ret = dev_transfer(buf, buf_len, &stat_buf, &stat_buf_len, "mon", -1);
+	ret = 0;
+	stat_buf_len = 10;
 	if(ret == 0 && stat_buf_len > 0){
 		// system monitor State
-        parse_system_state(tmp_receive,stat_buf,stat_buf_len,g_broker);
+        // parse_system_state(tmp_receive,stat_buf,stat_buf_len,g_broker);
+		tmp_system_state(tmp_receive, g_broker);
+
 	}else{
 		zlog_info(g_broker->log_handler,"no data in mosquitto \n ");
 		// need return if no data in mosquitto
@@ -398,7 +413,7 @@ int control_rssi_state(char *buf, int buf_len, g_broker_para* g_broker){
     root = cJSON_Parse(buf);
     item = cJSON_GetObjectItem(root,"dst");
 
-	ret = dev_transfer(buf, buf_len, &stat_buf, &stat_buf_len, item->valuestring, -1);
+	// ret = dev_transfer(buf, buf_len, &stat_buf, &stat_buf_len, item->valuestring, -1);
 
 	if(ret == 0 && stat_buf_len > 0){
 		item = cJSON_GetObjectItem(root,"timer");
@@ -438,6 +453,7 @@ int open_rssi_state_for_exception(g_broker_para* g_broker){
 
 int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 	int ret = -1;
+	return -1;
 	if(g_broker->rssi_module.user_cnt == 0 && g_broker->rssi_module.rssi_state == 0){
 		zlog_info(g_broker->log_handler,"open rssi in control_rssi_state() \n");
 		ret = control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);

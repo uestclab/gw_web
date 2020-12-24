@@ -88,6 +88,8 @@ void send_rssi_to_save(char* buf, int buf_len, g_broker_para* g_broker);
 void inform_stop_rssi_write_thread(int connfd, g_broker_para* g_broker);
 void clear_rssi_write_status(rssi_user_node* user_node, g_broker_para* g_broker);
 
+void tmp_system_state(g_receive_para* tmp_receive, g_broker_para* g_broker);
+
 
 /* test */
  
