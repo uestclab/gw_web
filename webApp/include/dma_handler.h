@@ -33,11 +33,19 @@ typedef struct constellation_iq_pair{
 * @brief 定义信道IQ模块相关状态
 */
 typedef struct csi_module_t{
-	uint32_t           slow_cnt;            		   // for send cnt to slow datas
 	int 			   csi_state;
 	int 			   user_cnt;
 	int                save_user_cnt;
 }csi_module_t;
+
+/*
+	iq imbalance
+*/
+typedef struct iqimb_module_t{
+	int         check_iqimb;
+	char     	file_name[1024];
+	FILE*       file;
+}iqimb_module_t;
 
 /**@struct csi_spectrum_t
 * @brief 定义信道频谱，时域处理buffer
@@ -68,6 +76,10 @@ typedef struct g_dma_para{
 	constellation_iq_pair* cons_iq_pair;
 	constellation_module_t constellation_module;
 	struct list_head   constell_user_node_head;
+
+	iqimb_module_t     iqimb_module;
+
+	int                fpga_in_transfer;
 
 	void *             p_axidma;
 	zlog_category_t*   log_handler;
@@ -108,9 +120,11 @@ void close_dma(g_dma_para* g_dma);
 
 
 int start_csi(g_dma_para* g_dma); //control by internal
-int stop_csi(g_dma_para* g_dma); //control by internal
-int start_csi_state_external(int connfd, g_dma_para* g_dma); // control by external
-int stop_csi_state_external(int connfd, g_dma_para* g_dma); // control by external
+
+int start_csi_state_external(int connfd, g_dma_para* g_dma); // control only by external multi user 
+int stop_csi_state_external(int connfd, g_dma_para* g_dma); // control only by external multi user 
+
+int open_csi_in_pull_request_mode(g_dma_para* g_dma); // note :: fpga_in_transfer
 
 void send_csi_display_in_event_loop(g_dma_para* g_dma);
 /* csi spectrum and time domain */
@@ -128,6 +142,8 @@ int stop_constellation_external(int connfd, g_dma_para* g_dma);
 void send_constell_display_in_event_loop(g_dma_para* g_dma);
 
 int processConstellation(char* buf, int buf_len, g_dma_para* g_dma);
+
+//test interface
 
 #endif//DMA_HANDLER_H
 

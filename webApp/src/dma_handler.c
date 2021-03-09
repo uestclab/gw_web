@@ -49,9 +49,9 @@ int IQ_register_callback(char* buf, int buf_len, void* arg)
 {
 	g_dma_para* g_dma = (g_dma_para*)arg;
 
-	usleep(10000);
+	zlog_info(g_dma->log_handler, "IQ_register_callback buf_len = %d", buf_len);
 
-	g_dma->csi_module.slow_cnt = 0;
+	zlog_info(g_dma->log_handler, "csi_state = %d constellation_state = %d",g_dma->csi_module.csi_state, g_dma->constellation_module.constellation_state);
 
 	if(g_dma->csi_module.csi_state == 1 && g_dma->constellation_module.constellation_state == 0){
         if(buf_len >= 1024){
@@ -82,6 +82,7 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	(*g_dma)->g_msg_queue          = g_server->g_msg_queue;
 	(*g_dma)->p_axidma             = NULL;
 	(*g_dma)->log_handler          = handler;
+	(*g_dma)->fpga_in_transfer     = 0;
 
 	(*g_dma)->p_axidma = axidma_open();
 	if((*g_dma)->p_axidma == NULL){
@@ -101,8 +102,12 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	INIT_LIST_HEAD(&((*g_dma)->csi_save_user_node_head));
 	(*g_dma)->csi_module.csi_state = 0;
 	(*g_dma)->csi_module.user_cnt  = 0;
-	(*g_dma)->csi_module.slow_cnt  = 0;
 	(*g_dma)->csi_module.save_user_cnt = 0;
+	
+	(*g_dma)->iqimb_module.check_iqimb = 0;
+	sprintf((*g_dma)->iqimb_module.file_name, "/run/media/mmcblk1p2/raw_data.txt");
+	(*g_dma)->iqimb_module.file = NULL;
+	
 
 
 	g_dma_tmp->cons_iq_pair = (constellation_iq_pair*)malloc(sizeof(constellation_iq_pair));
@@ -158,33 +163,34 @@ int start_csi(g_dma_para* g_dma){
 		g_dma->csi_module.csi_state = 0;
 		return -1;
 	}else{
+		/* csi_state 用于标识 IQ callback的数据类型 */
+		g_dma->csi_module.csi_state = 1;
+		g_dma->fpga_in_transfer = 1;
 		rc = axidma_chan(g_dma->p_axidma, 0x40);
 		rc = axidma_start(g_dma->p_axidma);
-		g_dma->csi_module.csi_state = 1;
 		zlog_info(g_dma->log_handler,"rc = %d , start_csi() \n" , rc);
 		return rc;
 	}
 }
 
-int stop_csi(g_dma_para* g_dma){
-	int rc;
-	if(g_dma->p_axidma == NULL){
-		zlog_info(g_dma->log_handler,"g_dma->p_axidma == NULL stop_csi\n");
-		g_dma->csi_module.csi_state = 0;
-		return -1;
-	}else{
-		rc = axidma_stop(g_dma->p_axidma);
-		g_dma->csi_module.csi_state = 0;
-		zlog_info(g_dma->log_handler,"rc = %d , stop_csi() \n" , rc);
-		return rc;
+/* control csi only one interface to call start_csi() */
+int open_csi_in_pull_request_mode(g_dma_para* g_dma){
+	int state = -1;
+	/* 如果 fpga_in_transfer == 0 ，表示没有用户请求fpga， 若fpga_in_transfer ==1， 代表MSG_CSI_READY 随后而至 */
+	if(g_dma->fpga_in_transfer == 0){
+		zlog_info(g_dma->log_handler,"start csi in open_csi_in_pull_request_mode() \n");
+		state = start_csi(g_dma);
+		if(state !=0 )
+			return -1;
 	}
+	return 0;
 }
 
 int start_csi_state_external(int connfd, g_dma_para* g_dma){
 	int state = -1;
-	if(g_dma->csi_module.user_cnt == 0 && g_dma->csi_module.csi_state == 0){
-		zlog_info(g_dma->log_handler,"start csi in start_csi() \n");
-		state = start_csi(g_dma);
+	if(g_dma->csi_module.user_cnt == 0){
+		zlog_info(g_dma->log_handler,"start csi in start_csi_state_external() \n");
+		state = open_csi_in_pull_request_mode(g_dma);
 		if(state !=0 )
 			return -1;
 	}
@@ -226,9 +232,8 @@ int stop_csi_state_external(int connfd, g_dma_para* g_dma){
 		free(pnode);
 	}
 
-	if(g_dma->csi_module.user_cnt == 0 && g_dma->csi_module.csi_state == 1){
-		zlog_info(g_dma->log_handler,"stop csi in stop_csi() \n");
-		stop_csi(g_dma);
+	if(g_dma->csi_module.user_cnt == 0){
+		zlog_info(g_dma->log_handler,"No web user -- stop csi in stop_csi_state_external()  \n");
 	}
 
 	return 0;
@@ -439,9 +444,9 @@ int start_constellation(g_dma_para* g_dma){
 		g_dma->constellation_module.constellation_state = 0;
 		return -1;
 	}else{
+		g_dma->constellation_module.constellation_state = 1;
 		rc = axidma_chan(g_dma->p_axidma, 0x80);
 		rc = axidma_start(g_dma->p_axidma);
-		g_dma->constellation_module.constellation_state = 1;
 		zlog_info(g_dma->log_handler,"rc = %d , start_constellation() \n" , rc);
 		return rc;
 	}	
@@ -461,11 +466,24 @@ int stop_constellation(g_dma_para* g_dma){
 	}
 }
 
+/* control constellation only one interface to call start_constellation() */
+int open_constellation_in_pull_request_mode(g_dma_para* g_dma){
+	int state = -1;
+	/* 如果 fpga_in_transfer == 0 ，表示没有用户请求fpga， 若fpga_in_transfer ==1， 代表MSG_CSI_READY 随后而至 */
+	if(g_dma->fpga_in_transfer == 0){
+		zlog_info(g_dma->log_handler,"start constellation in open_constellation_in_pull_request_mode() \n");
+		state = start_constellation(g_dma);
+		if(state !=0 )
+			return -1;
+	}
+	return 0;
+}
+
 int start_constellation_external(int connfd, g_dma_para* g_dma){
 	int state;
-	if(g_dma->constellation_module.user_cnt == 0 && g_dma->constellation_module.constellation_state == 0){
-		zlog_info(g_dma->log_handler,"start constellation in start_constellation() \n");
-		state = start_constellation(g_dma);
+	if(g_dma->constellation_module.user_cnt == 0){
+		zlog_info(g_dma->log_handler,"start constellation in start_constellation_external() \n");
+		state = open_constellation_in_pull_request_mode(g_dma);
 	}
 
 	/* need check if this connfd has in list? --------------------------------------------------------------- Note*/
@@ -505,9 +523,9 @@ int stop_constellation_external(int connfd, g_dma_para* g_dma){
 		free(pnode);
 	}
 
-	if(g_dma->constellation_module.user_cnt == 0 && g_dma->constellation_module.constellation_state == 1){
-		zlog_info(g_dma->log_handler,"stop constellation in stop_constellation() \n");
-		stop_constellation(g_dma);
+	if(g_dma->constellation_module.user_cnt == 0){
+		zlog_info(g_dma->log_handler,"stop constellation in stop_constellation_external() \n");
+		// stop_constellation(g_dma);
 	}
 
 	return 0;
@@ -537,9 +555,11 @@ void send_constell_display_in_event_loop(g_dma_para* g_dma){
 	*/
 void processCSI(char* buf, int buf_len, g_dma_para* g_dma){
 
-	memcpy(g_dma->csi_spectrum->buf, buf, buf_len); // buf_len = 1024
+	// continue .... process buf , valid data len = 512 ...... 20210304
+	memset(g_dma->csi_spectrum->buf, 0, buf_len);
+	memcpy(g_dma->csi_spectrum->buf, buf, 512); // buf_len = 1024
 
-    parse_IQ_from_net(buf, buf_len, g_dma->csi_spectrum->in_IQ);
+    parse_IQ_to_fft(g_dma->csi_spectrum->buf, buf_len, g_dma->csi_spectrum->in_IQ);
     calculate_spectrum(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->out_fft, &(g_dma->csi_spectrum->p), g_dma->csi_spectrum->spectrum, 256); 
     myfftshift(g_dma->csi_spectrum->db_array, g_dma->csi_spectrum->spectrum, 256);
     timeDomainChange(g_dma->csi_spectrum->in_IQ, g_dma->csi_spectrum->time_IQ, 256);
@@ -598,3 +618,4 @@ int processConstellation(char* buf, int buf_len, g_dma_para* g_dma){
 	}
 }
 /** @} Constell*/
+

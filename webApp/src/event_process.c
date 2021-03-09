@@ -8,6 +8,7 @@
 #include "threadFuncWrapper.h"
 #include "timer.h"
 #include "openwrt.h"
+#include "iqimb.h"
 
 /* test */
 #include "response_json.h"
@@ -112,6 +113,13 @@ void create_monitor_configue_change(g_broker_para* g_broker, ThreadPool* g_threa
 	AddWorker(monitor_conf_thread,(void*)g_broker,g_threadpool);
 }
 
+void init_callback(g_dma_para* g_dma){
+	if(g_dma->enableCallback == 0){
+		dma_register_callback(g_dma);
+		g_dma->enableCallback = 1;
+	}
+}
+
 /* -------------------------- main process msg loop --------------------------------------------- */
 void 
 eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma, 
@@ -119,16 +127,20 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 {
 
 	record_str_t* g_record = (record_str_t*)malloc(sizeof(record_str_t));
-
 	init_record_str(g_record);
 	if(auto_log_start(&logc,zlog_handler) != 0){
 		return;
 	}
 
+	init_callback(g_dma);
+
 	addTimeOutWorkToTimer(g_msg_queue,g_timer);
 
 	create_probe_task(g_server);
 	create_monitor_configue_change(g_broker, g_threadpool);
+
+	/* init iqimb */
+	iqimb_start_cycle(g_server, 30);
 
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -146,13 +158,11 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				add_new_user_node_to_list(new_node, g_server);
 
 				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_ACCEPT_NEW_USER: register broker callback \n");
 					broker_register_callback_interface(g_broker);
 					g_broker->enableCallback = 1; 
 				}
 
 				if(g_dma->enableCallback == 0){
-					zlog_info(zlog_handler, "---------------- EVENT : MSG_ACCEPT_NEW_USER: register dma callback \n");
 					dma_register_callback(g_dma);
 					g_dma->enableCallback = 1;
 				}
@@ -363,22 +373,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			{
 				zlog_info(zlog_handler," ---------------- EVENT : MSG_CONF_CHANGE: msg_number = %d",getData->msg_number);
 
-				char* p_conf_file = readfile(getData->msg_json);
-				if(p_conf_file == NULL){
-					zlog_error(g_broker->log_handler,"open file %s error.\n",getData->msg_json);
-					break;
-				}
-				zlog_info(g_broker->log_handler, "new conf : %s \n", p_conf_file);
-
-				cJSON * root = NULL;
-    			cJSON * item = NULL;
-    			root = cJSON_Parse(p_conf_file);
-    			item = cJSON_GetObjectItem(root,"id");
-				int state_id = item->valueint;
-				item = cJSON_GetObjectItem(root,"cmd");
-				int cmd = item->valueint;
-				cJSON_Delete(root);
-				free(p_conf_file);
+				// test interface
 
 				break;
 			}
@@ -426,11 +421,24 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			}
 			case MSG_CSI_READY:
 			{
-				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
-
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_CSI_READY: msg_number = %d",getData->msg_number);
+				g_dma->fpga_in_transfer = 0;
+				g_dma->csi_module.csi_state = 0;
 				if(getData->msg_len != 1024){
 					zlog_info(zlog_handler," getData->msg_len != 1024 : %d ",getData->msg_len);
 					break;
+				}
+
+				// pull request IQ data from FPGA if user cnt !=0
+				if(g_dma->csi_module.user_cnt != 0){
+					open_csi_in_pull_request_mode(g_dma);
+				}
+
+
+				if(g_dma->iqimb_module.check_iqimb == 1){
+					transfer_data_to_iqimb(getData->msg_json, 1024, g_dma, g_server);
+					g_dma->iqimb_module.check_iqimb = 0;
+					iqimb_start_cycle(g_server,60);
 				}
 
 				processCSI(getData->msg_json, 1024, g_dma);
@@ -440,6 +448,28 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				/* send to save */
 				send_csi_to_save(g_dma);
+
+				break;
+			}
+			case MSG_IQ_IMB_APP_TIMEOUT:
+			{
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_IQ_IMB_APP_TIMEOUT: msg_number = %d",getData->msg_number);
+				/* check mutex with constell */
+				if(g_dma->constellation_module.constellation_state == 1){
+					g_dma->iqimb_module.check_iqimb = 0;
+					iqimb_start_cycle(g_server,60);
+					break;
+				}
+
+				if(open_csi_in_pull_request_mode(g_dma) != 0){
+					g_dma->iqimb_module.check_iqimb = 0;
+					iqimb_start_cycle(g_server,60);
+					break;
+				}
+
+				g_dma->iqimb_module.check_iqimb = 1;
+
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_IQ_IMB_APP_TIMEOUT: End");
 
 				break;
 			}
@@ -483,6 +513,15 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			case MSG_CONSTELLATION_READY:
 			{
 				//zlog_info(zlog_handler," ---------------- EVENT : MSG_CONSTELLATION_READY: msg_number = %d",getData->msg_number);
+				g_dma->fpga_in_transfer = 0;
+				g_dma->constellation_module.constellation_state = 0;
+
+				// pull request IQ data from FPGA if user cnt !=0
+				if(g_dma->constellation_module.user_cnt != 0){
+					// open_csi_in_pull_request_mode(g_dma);
+				}
+
+
 				/* process IQ data */
 				int ret = processConstellation(getData->tmp_data, getData->tmp_data_len, g_dma);
 				if(ret == 0){

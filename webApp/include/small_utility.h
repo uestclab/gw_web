@@ -37,8 +37,10 @@ char* parse_fpga_version(uint32_t number);
 
 double calculateFreq(uint32_t number);
 
+void parse_IQ_to_iqimb(char* buf, int len, float* out_512);
+
 /* fft ---- csi  */
-void parse_IQ_from_net(char* buf, int len, fftwf_complex *in_IQ); // length must be 1024
+void parse_IQ_to_fft(char* buf, int len, fftwf_complex *in_IQ); // length must be 1024
 void calculate_spectrum(fftwf_complex *in_IQ , fftwf_complex *out_fft, fftwf_plan *p, float* spectrum, int len); // len = 256
 int myfftshift(float* db_array, float* spectrum, int len); // len = 256
 void timeDomainChange(fftwf_complex *in_IQ, float* time_IQ, int len); // len = 256

@@ -223,14 +223,25 @@ float tranform(char *input,int length){
 }
 
 // length must be 1024 -- 2 byte each I or Q data
-void parse_IQ_from_net(char* buf, int len, fftwf_complex *in_IQ){
+// IQ_steam[256*2]
+void parse_IQ_FPGA2ARM(char *buf, int len, float *IQ_stream){
+	char invert_buf[1024];
+	for(int i=0;i<len;i = i + 8){
+		invert_buf[i + 7] = buf[i+0];
+		invert_buf[i + 6] = buf[i+1];
+		invert_buf[i + 5] = buf[i+2];
+		invert_buf[i + 4] = buf[i+3];
+		invert_buf[i + 3] = buf[i+4];
+		invert_buf[i + 2] = buf[i+5];
+		invert_buf[i + 1] = buf[i+6];
+		invert_buf[i + 0] = buf[i+7];
+	}
+
 	char input_c[2];
-	int counter = 0;
 	int stream_counter = 0;
-	double IQ_stream[256*2];
-	int i;
-	for(i=0;i<len;i++){
-		input_c[counter] = *(buf + i);
+	int counter = 0;
+	for(int i=0;i<len;i++){
+		input_c[counter] = *(invert_buf + i);
 		counter = counter + 1;
 		if(counter == 2){
 			float temp_d = tranform(input_c,2);
@@ -239,8 +250,17 @@ void parse_IQ_from_net(char* buf, int len, fftwf_complex *in_IQ){
 			counter = 0;
 		}
 	}
-	stream_counter = 0;
-	for(i=0;i<512;i = i + 16){
+
+}
+
+// length must be 1024 -- 2 byte each I or Q data
+void parse_IQ_to_fft(char* buf, int len, fftwf_complex *in_IQ){
+	
+	int stream_counter = 0;
+	float IQ_stream[256*2];
+	parse_IQ_FPGA2ARM(buf,len,IQ_stream);
+
+	for(int i=0;i<512;i = i + 16){
 		// real
 		in_IQ[stream_counter][0]   = IQ_stream[i];
 		in_IQ[stream_counter+1][0] = IQ_stream[i+1];
@@ -260,6 +280,33 @@ void parse_IQ_from_net(char* buf, int len, fftwf_complex *in_IQ){
 		in_IQ[stream_counter+6][1] = IQ_stream[i+14];
 		in_IQ[stream_counter+7][1] = IQ_stream[i+15];
 		stream_counter = stream_counter + 8;
+	}
+}
+
+// length must be 1024 -- 2 byte each I or Q data
+void parse_IQ_to_iqimb(char* buf, int len, float* out_512){
+
+	int stream_counter = 0;
+	float IQ_stream[256*2];
+	parse_IQ_FPGA2ARM(buf,len,IQ_stream);
+	
+	for(int i=0;i<512;i = i + 16){
+		out_512[i]   = IQ_stream[i];   //I
+		out_512[i+1] = IQ_stream[i+8];
+		out_512[i+2] = IQ_stream[i+1]; //I
+		out_512[i+3] = IQ_stream[i+9];
+		out_512[i+4] = IQ_stream[i+2]; //I
+		out_512[i+5] = IQ_stream[i+10];
+		out_512[i+6] = IQ_stream[i+3]; //I
+		out_512[i+7] = IQ_stream[i+11];
+		out_512[i+8] = IQ_stream[i+4]; //I
+		out_512[i+9] = IQ_stream[i+12];
+		out_512[i+10] = IQ_stream[i+5]; //I
+		out_512[i+11] = IQ_stream[i+13];
+		out_512[i+12] = IQ_stream[i+6]; //I
+		out_512[i+13] = IQ_stream[i+14];
+		out_512[i+14] = IQ_stream[i+7]; //I
+		out_512[i+15] = IQ_stream[i+15];
 	}
 }
 
