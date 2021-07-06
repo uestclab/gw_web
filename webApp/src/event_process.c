@@ -824,6 +824,7 @@ void record_constell_start_enable(int connfd, int enable, g_server_para* g_serve
 #define CSI_MUTEX 2
 #define CONSTELL_MUTEX 3
 void send_cmd_state(g_server_para* g_server, g_receive_para* g_receive ,int state, char* record_str){
+	return; // xweb crash!!!!!
 	int cmd_state = CMD_FAIL;
 	if(state == CMD_OK){
 		cmd_state = CMD_OK;
