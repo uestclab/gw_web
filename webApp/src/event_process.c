@@ -139,8 +139,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 	create_probe_task(g_server);
 	create_monitor_configue_change(g_broker, g_threadpool);
 
-	/* init iqimb */
-	iqimb_start_cycle(g_server, 30);
 
 	while(1){
 		struct msg_st* getData = getMsgQueue(g_msg_queue);
@@ -434,13 +432,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 					open_csi_in_pull_request_mode(g_dma);
 				}
 
-
-				if(g_dma->iqimb_module.check_iqimb == 1){
-					transfer_data_to_iqimb(getData->msg_json, 1024, g_dma, g_server);
-					g_dma->iqimb_module.check_iqimb = 0;
-					iqimb_start_cycle(g_server,60);
-				}
-
 				processCSI(getData->msg_json, 1024, g_dma);
 				
 				/* send to display */
@@ -448,28 +439,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				/* send to save */
 				send_csi_to_save(g_dma);
-
-				break;
-			}
-			case MSG_IQ_IMB_APP_TIMEOUT:
-			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_IQ_IMB_APP_TIMEOUT: msg_number = %d",getData->msg_number);
-				/* check mutex with constell */
-				if(g_dma->constellation_module.constellation_state == 1){
-					g_dma->iqimb_module.check_iqimb = 0;
-					iqimb_start_cycle(g_server,60);
-					break;
-				}
-
-				if(open_csi_in_pull_request_mode(g_dma) != 0){
-					g_dma->iqimb_module.check_iqimb = 0;
-					iqimb_start_cycle(g_server,60);
-					break;
-				}
-
-				g_dma->iqimb_module.check_iqimb = 1;
-
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_IQ_IMB_APP_TIMEOUT: End");
 
 				break;
 			}

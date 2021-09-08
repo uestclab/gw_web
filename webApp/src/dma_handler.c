@@ -104,12 +104,6 @@ int create_dma_handler(g_dma_para** g_dma, g_server_para* g_server, zlog_categor
 	(*g_dma)->csi_module.user_cnt  = 0;
 	(*g_dma)->csi_module.save_user_cnt = 0;
 	
-	(*g_dma)->iqimb_module.check_iqimb = 0;
-	sprintf((*g_dma)->iqimb_module.file_name, "/run/media/mmcblk1p2/raw_data.txt");
-	(*g_dma)->iqimb_module.file = NULL;
-	
-
-
 	g_dma_tmp->cons_iq_pair = (constellation_iq_pair*)malloc(sizeof(constellation_iq_pair));
 	g_dma_tmp->cons_iq_pair->iq_cnt = 0;
 	INIT_LIST_HEAD(&(g_dma_tmp->constell_user_node_head));

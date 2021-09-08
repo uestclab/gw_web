@@ -38,15 +38,6 @@ typedef struct csi_module_t{
 	int                save_user_cnt;
 }csi_module_t;
 
-/*
-	iq imbalance
-*/
-typedef struct iqimb_module_t{
-	int         check_iqimb;
-	char     	file_name[1024];
-	FILE*       file;
-}iqimb_module_t;
-
 /**@struct csi_spectrum_t
 * @brief 定义信道频谱，时域处理buffer
 */
@@ -76,8 +67,6 @@ typedef struct g_dma_para{
 	constellation_iq_pair* cons_iq_pair;
 	constellation_module_t constellation_module;
 	struct list_head   constell_user_node_head;
-
-	iqimb_module_t     iqimb_module;
 
 	int                fpga_in_transfer;
 

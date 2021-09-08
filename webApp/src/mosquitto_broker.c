@@ -453,7 +453,7 @@ int open_rssi_state_for_exception(g_broker_para* g_broker){
 
 int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 	int ret = -1;
-	return -1;
+	return -1; // gw50 tmp
 	if(g_broker->rssi_module.user_cnt == 0 && g_broker->rssi_module.rssi_state == 0){
 		zlog_info(g_broker->log_handler,"open rssi in control_rssi_state() \n");
 		ret = control_rssi_state(g_broker->json_set.rssi_open_json,strlen(g_broker->json_set.rssi_open_json), g_broker);
