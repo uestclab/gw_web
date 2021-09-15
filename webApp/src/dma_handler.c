@@ -210,11 +210,13 @@ int start_csi_state_external(int connfd, g_dma_para* g_dma){
 int stop_csi_state_external(int connfd, g_dma_para* g_dma){
     struct list_head *pos, *n;
     struct csi_user_node *pnode = NULL;
+	struct csi_user_node *tmp_pnode = NULL;
     list_for_each_safe(pos, n, &g_dma->csi_user_node_head){
-        pnode = list_entry(pos, struct csi_user_node, list);
-        if(pnode->connfd == connfd){
+        tmp_pnode = list_entry(pos, struct csi_user_node, list);
+        if(tmp_pnode->connfd == connfd){
             list_del(pos);
             g_dma->csi_module.user_cnt--;
+			pnode = tmp_pnode;
 			zlog_info(g_dma->log_handler,"find node in stop_csi_state_external() ! connfd = %d, user_cnt = %d ", connfd,g_dma->csi_module.user_cnt);
             break;
         }
@@ -489,11 +491,13 @@ int start_constellation_external(int connfd, g_dma_para* g_dma){
 int stop_constellation_external(int connfd, g_dma_para* g_dma){
     struct list_head *pos, *n;
     struct constell_user_node *pnode = NULL;
+	struct constell_user_node *tmp_pnode = NULL;
     list_for_each_safe(pos, n, &g_dma->constell_user_node_head){
-        pnode = list_entry(pos, struct constell_user_node, list);
-        if(pnode->connfd == connfd){
+        tmp_pnode = list_entry(pos, struct constell_user_node, list);
+        if(tmp_pnode->connfd == connfd){
             list_del(pos);
             g_dma->constellation_module.user_cnt--;
+			pnode = tmp_pnode;
 			zlog_info(g_dma->log_handler,"find node in stop_constellation_external() ! connfd = %d, user_cnt = %d ", connfd,g_dma->constellation_module.user_cnt);
             break;
         }

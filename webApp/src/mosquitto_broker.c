@@ -473,11 +473,13 @@ int open_rssi_state_external(int connfd, g_broker_para* g_broker){
 int close_rssi_state_external(int connfd, g_broker_para* g_broker){
     struct list_head *pos, *n;
     struct rssi_user_node *pnode = NULL;
+	struct rssi_user_node *tmp_pnode = NULL;
     list_for_each_safe(pos, n, &g_broker->rssi_user_node_head){
-        pnode = list_entry(pos, struct rssi_user_node, list);
-        if(pnode->connfd == connfd){
+        tmp_pnode = list_entry(pos, struct rssi_user_node, list);
+        if(tmp_pnode->connfd == connfd){
             list_del(pos);
             g_broker->rssi_module.user_cnt--;
+			pnode = tmp_pnode;
 			zlog_info(g_broker->log_handler,"find node in close_rssi_state_external() ! connfd = %d, user_cnt = %d ", connfd,g_broker->rssi_module.user_cnt);
             break;
         }

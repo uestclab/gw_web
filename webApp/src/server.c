@@ -231,7 +231,7 @@ void receive(g_receive_para* g_receive, void* pri_ptr){
         }
 		if(size == 0){
             // couterpart socket is close
-			zlog_info(g_receive->log_handler,"recv() size = 0\n");
+			zlog_info(g_receive->log_handler,"recv() size = 0 ! connfd = %d\n", g_receive->connfd);
             g_receive->working = SOCKET_CLOSE;
         }
 		return;
@@ -527,11 +527,13 @@ user_session_node* new_user_node(g_server_para* g_server){
 user_session_node* del_user_node_in_list(int connfd, g_server_para* g_server){ // may not find the node ?
     struct list_head *pos, *n;
     struct user_session_node *pnode = NULL;
+    struct user_session_node *tmp_pnode = NULL;
     list_for_each_safe(pos, n, &g_server->user_session_node_head){
-        pnode = list_entry(pos, struct user_session_node, list);
-        if(pnode->g_receive->connfd == connfd){
+        tmp_pnode = list_entry(pos, struct user_session_node, list);
+        if(tmp_pnode->g_receive->connfd == connfd){
             zlog_info(g_server->log_handler,"find node in del_user_node_in_list() ! connfd = %d", connfd);
             list_del(pos);
+            pnode = tmp_pnode;
             g_server->user_session_cnt--;
             break;
         }
