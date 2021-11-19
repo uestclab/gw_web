@@ -8,7 +8,7 @@
 #include "cJSON.h"
 #include "zlog.h"
 #include "msg_queue.h"
-#include "mosquitto_broker.h"
+#include "mosq_broker.h"
 
 typedef struct ret_byte{
 	char* low;

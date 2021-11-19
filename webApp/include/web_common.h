@@ -33,6 +33,11 @@ typedef struct queue_item{
 	int   buf_len;
 }queue_item;
 
+enum cmd_state{
+	CLOSE = 0,
+	OPEN
+};
+
 /**@enum msg_event
 * @brief 定义上报事件循环处理消息类型
 */
@@ -51,7 +56,7 @@ typedef enum msg_event{
 	MSG_DEL_DISCONNECT_USER,
 	/* system state */
 	MSG_INQUIRY_SYSTEM_STATE,
-	MSG_SYSTEM_STATE_EXCEPTION,
+	MSG_SYSTEM_STATE_TOPIC,
 	/* reg state request */
 	MSG_INQUIRY_REG_STATE,
 	/* RSSI control and value */

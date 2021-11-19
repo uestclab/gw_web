@@ -2,7 +2,6 @@
 #include <string.h>
 #include <math.h>
 #include "cJSON.h"
-#include "broker.h"
 #include "web_common.h"
 
 void postMsg(long int msg_type, char *buf, int buf_len, void* tmp_data, int tmp_data_len, g_msg_queue_para* g_msg_queue){
@@ -382,15 +381,6 @@ int IsProcessIsRun(char *proc)
     fp=NULL; 
     
 	return count;
-}
-
-/* reset system time */
-// changeSystemTime("\"2020-03-04 15:59:00\"");
-void changeSystemTime(char* time_str){
-	//date -s "2020-03-04 15:59:00"
-	char command[128];
-    sprintf(command, "date -s \"%s\"", time_str); 
-	system(command);
 }
 
 /* --- tmp ---- */

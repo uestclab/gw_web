@@ -20,7 +20,7 @@ void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_p
 	zlog_info(log_handler,"  ---------------- displayManageInfo () --------------------------\n");
 	
 	zlog_info(log_handler,"user_node_cnt = %d \n" , g_server->user_session_cnt);
-	zlog_info(log_handler,"rssi user_cnt = %d \n", g_broker->rssi_module.user_cnt);
+	zlog_info(log_handler,"rssi user_cnt = %d \n", g_broker->rssi_module->user_cnt);
 	zlog_info(log_handler,"csi user_cnt = %d \n",g_dma->csi_module.user_cnt);
 	zlog_info(log_handler,"csi save_user_cnt = %d \n",g_dma->csi_module.save_user_cnt);
 	zlog_info(log_handler,"constellation user_cnt = %d \n",g_dma->constellation_module.user_cnt);
@@ -42,7 +42,7 @@ void display(g_server_para* g_server){
 	struct user_session_node *pnode = NULL;
 	list_for_each_entry(pnode, &g_server->user_session_node_head, list) {
 		if(pnode->g_receive != NULL){    
-			zlog_info(g_server->log_handler,"-- %d : user fd =  %d " , user_cnt, pnode->g_receive->connfd);
+			zlog_info(g_server->log_handler,"------- %d : user fd =  %d " , user_cnt, pnode->g_receive->connfd);
 			user_cnt = user_cnt + 1;
 		}
 	}
@@ -84,7 +84,7 @@ void openwrt_disconnect_process(g_server_para* g_server){
 /* ------------------ test dynamic change conf ------------------------- */
 void* monitor_conf_thread(void* args){
 	g_broker_para* g_broker = (g_broker_para*)args;
-	char* conf_path = "../conf/test_conf.json";
+	char* conf_path = "/run/media/mmcblk1p1/gw_web/web/conf/test_conf.json";
 	char* p_conf_file = readfile(conf_path);
 	if(p_conf_file == NULL){
 		zlog_error(g_broker->log_handler,"open file %s error.\n",conf_path);
@@ -128,9 +128,9 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 	record_str_t* g_record = (record_str_t*)malloc(sizeof(record_str_t));
 	init_record_str(g_record);
-	if(auto_log_start(&logc,zlog_handler) != 0){
-		return;
-	}
+	// if(auto_log_start(&logc,zlog_handler) != 0){
+	// 	return;
+	// }
 
 	init_callback(g_dma);
 
@@ -154,11 +154,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				user_session_node* new_node = (user_session_node*)getData->tmp_data;
 				add_new_user_node_to_list(new_node, g_server);
-
-				if(g_broker->enableCallback == 0){
-					broker_register_callback_interface(g_broker);
-					g_broker->enableCallback = 1; 
-				}
 
 				if(g_dma->enableCallback == 0){
 					dma_register_callback(g_dma);
@@ -209,12 +204,8 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				memcpy(&count,&new_user,sizeof(void*));
         		ret = write(g_server->epoll_node.event_fd, &count, sizeof(count));
 				if(ret == -1){
+					zlog_info(zlog_handler,"  write(g_server->epoll_node.event_fd = %d , ret = -1 !!!!! error \n", g_server->epoll_node.event_fd);
 					del_user(g_server->openwrt_node.openwrt_connfd, g_server, g_broker, g_dma, g_threadpool); // fail to add new fd to epoll !!
-				}
-				if(g_broker->enableCallback == 0){
-					zlog_info(zlog_handler," ---------------- EVENT : MSG_OPENWRT_CONNECTED: register broker callback \n");
-					broker_register_callback_interface(g_broker);
-					g_broker->enableCallback = 1; 
 				}
 
 				openwrt_start_keepAlive(g_server,g_server->openwrt_node.openwrt_connfd);
@@ -239,23 +230,6 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				// add new json parse to distinguish different terminal and terminal system time
 				inquiry_system_state(tmp_receive,g_broker);
 
-				// update device system time at inital access
-				if(g_server->update_system_time){
-					struct timeval tv;
-					gettimeofday(&tv, NULL);
-					g_broker->update_acc_time = tv.tv_sec - g_broker->start_time;
-
-					if(tmp_web->buf_data_len != 0){
-						changeSystemTime(tmp_web->currentTime);
-					}else{
-						changeSystemTime("2000-03-06 14:40:00");
-					}
-					g_server->update_system_time = 0;
-					gettimeofday(&tv, NULL);
-					g_broker->start_time = tv.tv_sec;
-					zlog_info(zlog_handler,"update device system time \n");
-				}
-
 				struct user_session_node *pnode = NULL;
 				pnode = find_user_node_by_connfd(tmp_receive->connfd, g_server);
 				if(pnode != NULL){
@@ -269,20 +243,13 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 
 				break;
 			}
-			case MSG_SYSTEM_STATE_EXCEPTION: // clear system state variable
+			case MSG_SYSTEM_STATE_TOPIC: // system state topic from aagc
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_SYSTEM_STATE_EXCEPTION: msg_number = %d",getData->msg_number);
+				zlog_info(zlog_handler," ---------------- EVENT : MSG_SYSTEM_STATE_TOPIC: msg_number = %d",getData->msg_number);
 
-				process_exception(getData->msg_json,getData->msg_len,g_broker);
+				process_system_state_topic(getData->msg_json,getData->msg_len,g_broker);
 
-				if(g_broker->system_ready == 0){
-					g_server->happen_exception = 1;
-				}else{
-					if(g_server->happen_exception){
-						// open_rssi_state_for_exception(g_broker);
-						g_server->happen_exception = 0;
-					}
-				}
+				display(g_server);
 
 				break;
 			}
@@ -333,12 +300,13 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			{
 				// zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
 
-				/* send rssi to node.js for display */
-				send_rssi_in_event_loop(getData->msg_json, getData->msg_len, g_broker);
+				if(g_broker->system_ready == 1){
+					/* send rssi to node.js for display */
+					send_rssi_in_event_loop(getData->msg_json, getData->msg_len, g_broker);
 
-				/* check and save rssi to file */
-				send_rssi_to_save(getData->msg_json, getData->msg_len, g_broker);
-
+					/* check and save rssi to file */
+					send_rssi_to_save(getData->msg_json, getData->msg_len, g_broker);
+				}
 				break;
 			}
 			case MSG_CONTROL_RSSI: // rssi save enable or not
@@ -580,7 +548,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 				tmp_web = (web_msg_t*)getData->tmp_data;
 				g_receive_para* tmp_receive = (g_receive_para*)tmp_web->point_addr_1;			
 
-				system("sh /tmp/web/conf/clear_log.sh");
+				system("sh /run/media/mmcblk1p1/gw_web/web/conf/clear_log.sh");
 				send_cmd_state(g_server,tmp_receive ,CMD_OK, g_record->clear_log_succ);
 				break;
 			}

@@ -8,7 +8,7 @@
 #include "cJSON.h"
 #include "zlog.h"
 #include "gw_utility.h"
-#include "gw_control.h"
+#include "gw_register.h"
 #include "web_common.h"
 
 /**@struct system_state_t
@@ -59,7 +59,7 @@ char* system_state_response(int is_ready, int is_exception, system_state_t* tmp_
 
 char* reg_state_response(reg_state_t* reg_state);
 
-char* rssi_data_response(double rssi_data);
+char* rssi_data_response(double rssi_data, int seq_num);
 
 char* csi_data_response(float *db_array, float *time_IQ, int len);
 

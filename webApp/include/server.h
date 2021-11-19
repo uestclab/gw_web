@@ -84,8 +84,6 @@ typedef struct g_server_para{
 	g_msg_queue_para*  g_msg_queue;
 	event_timer_t* 	   g_timer;
 	openwrt_node_t     openwrt_node;
-	int                happen_exception;
-	int                update_system_time;
 	epoll_event_node   epoll_node;
 	int                listenfd;
 	/* user node session */

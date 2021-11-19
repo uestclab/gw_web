@@ -9,7 +9,7 @@
 #include "cJSON.h"
 #include "zlog.h"
 #include "server.h"
-#include "mosquitto_broker.h"
+#include "mosq_broker.h"
 #include "rf_module.h"
 
 typedef struct input_args_t{

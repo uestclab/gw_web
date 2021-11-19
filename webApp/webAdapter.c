@@ -75,26 +75,26 @@
 
 #include "msg_queue.h"
 #include "event_process.h"
-#include "mosquitto_broker.h"
+#include "mosq_broker.h"
 #include "dma_handler.h"
-#include "gw_control.h"
 #include "ThreadPool.h"
 #include "event_timer.h"
 #include "web_common.h"
+#include "cmd_line.h"
 
-
-zlog_category_t * serverLog(const char* path){
+int debug_switch = 0; // 0 : no zlog file 
+zlog_category_t * initLog(const char* path, char* app_name){
 	int rc;
 	zlog_category_t *zlog_handler = NULL;
 
 	rc = zlog_init(path);
 
 	if (rc) {
-		printf("init serverLog failed\n");
+		printf("init initLog failed\n");
 		return NULL;
 	}
 
-	zlog_handler = zlog_get_category("webAdapterlog");
+	zlog_handler = zlog_get_category(app_name);
 
 	if (!zlog_handler) {
 		printf("get cat fail\n");
@@ -106,8 +106,21 @@ zlog_category_t * serverLog(const char* path){
 	return zlog_handler;
 }
 
-void closeServerLog(){
+void closeLog(){
 	zlog_fini();
+}
+
+void info_zlog(zlog_category_t *zlog_handler, const char *format, ...)
+{
+	if(debug_switch == 0){
+		return;
+	}
+	char log_buf[1024] = { 0 };
+	va_list args;
+	va_start(args, format);
+	vsprintf(log_buf, format, args);
+	va_end(args);
+	zlog_info(zlog_handler, log_buf);
 }
 
 void check_assert(){
@@ -121,7 +134,24 @@ int main(int argc,char** argv)
 
 	//check_assert();
 
-	zlog_category_t *zlog_handler = serverLog("../conf/zlog_default.conf");
+	g_args_para g_args = {
+		.prog_name = NULL,
+		.conf_file = NULL,
+		.log_file  = NULL,
+		.debug_switch = 0
+	}; 
+	int ret = parse_cmd_line(argc, argv, &g_args);
+	if(-EINVAL == ret){
+		fprintf (stdout, "parse_cmd_line error : %s \n", g_args.prog_name);
+        return 0;
+	}else if(-EPERM == ret){
+		return 0;
+	}
+	fprintf (stdout, "cmd line : %s -l %s\n", g_args.prog_name, g_args.log_file);
+	
+	debug_switch = g_args.debug_switch;
+
+	zlog_category_t *zlog_handler = initLog(g_args.log_file,g_args.prog_name);
 
 	zlog_info(zlog_handler,"******************** start webAdapter process ********************************\n");
 
@@ -137,7 +167,7 @@ int main(int argc,char** argv)
 
 	/* reg dev */
 	g_RegDev_para* g_RegDev = NULL;
-	int state = initRegdev(&g_RegDev, zlog_handler);
+	int state = initRegdev(&g_RegDev, 0x43C20000, zlog_handler);
 	if(state != 0 ){
 		zlog_info(zlog_handler,"initRegdev create failed !");
 		return 0;
@@ -165,7 +195,7 @@ int main(int argc,char** argv)
 
 	/* broker handler */
 	g_broker_para* g_broker = NULL;
-	state = createBroker(argv[0], &g_broker, g_server, g_RegDev, zlog_handler);
+	state = createBroker(g_args.prog_name, &g_broker, g_server, g_RegDev, zlog_handler);
 	if(state != 0 || g_server == NULL){
 		zlog_info(zlog_handler,"No Broker created \n");
 		return 0;
@@ -181,7 +211,7 @@ int main(int argc,char** argv)
 
 	eventLoop(g_server, g_broker, g_dma, g_msg_queue, g_threadpool, g_timer, zlog_handler);
 
-	closeServerLog();
+	closeLog();
     return 0;
 }
 

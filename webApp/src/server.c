@@ -308,6 +308,8 @@ int unregisterEvent(int fd, g_server_para* g_server)
 void* runEpollServer(void* args){
     g_server_para* g_server = (g_server_para*)args;
 
+    zlog_info(g_server->log_handler, "start runEpollServer() \n");
+
     struct epoll_event ev,events[MAX_EVENTS];
     int nfds;
     int i;
@@ -344,7 +346,7 @@ void* runEpollServer(void* args){
             }else if(events[i].data.fd == g_server->epoll_node.event_fd){ // event_fd
                 int event_fd = events[i].data.fd;
                 uint64_t read_fd;
-                if(event_fd & EPOLLIN){
+                if(events[i].events & EPOLLIN){
                     if(read(event_fd, &read_fd, sizeof(read_fd)) < 0) continue;
                     //int new_fd = (int)read_fd;
                     user_session_node* new_user = (user_session_node*)read_fd;
@@ -390,8 +392,6 @@ int CreateServerThread(g_server_para** g_server_tmp, ThreadPool* g_threadpool, g
 	g_server->g_msg_queue  = g_msg_queue;
     g_server->g_timer      = g_timer;
 	g_server->log_handler  = handler;
-    g_server->update_system_time = 0;
-    g_server->happen_exception = 0;
 
     g_server->openwrt_node.openwrt_connfd = -1;
     g_server->openwrt_node.openwrt_link   = 0;

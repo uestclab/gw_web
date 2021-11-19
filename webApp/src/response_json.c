@@ -282,7 +282,7 @@ char* reg_state_response(reg_state_t* reg_state){
     return reg_state_response_json;
 }
 
-char* rssi_data_response(double rssi_data){
+char* rssi_data_response(double rssi_data, int seq_num){
     char* rssi_data_response_json = NULL;
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "comment", "rssi_data_response");
@@ -295,6 +295,7 @@ char* rssi_data_response(double rssi_data){
     cJSON_AddStringToObject(obj_1, "name","rssi");
     cJSON_AddStringToObject(obj_1, "data_type","double");
     cJSON_AddNumberToObject(obj_1, "value",rssi_data);
+    cJSON_AddNumberToObject(obj_1, "seq_num",seq_num);
     cJSON_AddItemToArray(array,obj_1);    
 
     cJSON_AddItemToObject(root,"ret_value",array);
