@@ -21,7 +21,7 @@
 #define TCP_LISTEN_PORT 55055
 
 /**@struct record_action_t
-* @brief 记录新接入用户请求操作动作
+* @brief 记录新接入用户请求操作动作 // improve : bitmap
 */
 typedef struct record_action_t{
 	int         enable_rssi; ///<  操作rssi*/

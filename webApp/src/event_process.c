@@ -15,6 +15,8 @@
 #include "md5sum.h"
 #include "utility.h"
 
+void info_zlog(zlog_category_t *zlog_handler, const char *format, ...);
+
 void monitorManageInfo(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma){
 	zlog_category_t* log_handler = g_server->log_handler;
 	zlog_info(log_handler,"  ---------------- displayManageInfo () --------------------------\n");
@@ -216,7 +218,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			}
 			case MSG_PRIORITY_KEEPALIVE:
 			{
-				zlog_info(zlog_handler," ---------------- EVENT : MSG_PRIORITY_KEEPALIVE: msg_number = %d",getData->msg_number);
+				info_zlog(zlog_handler," ---------------- EVENT : MSG_PRIORITY_KEEPALIVE: msg_number = %d",getData->msg_number);
 				openwrt_start_keepAlive(g_server,getData->tmp_data_len);
 				break;
 			}
@@ -298,7 +300,7 @@ eventLoop(g_server_para* g_server, g_broker_para* g_broker, g_dma_para* g_dma,
 			/* 系统异常后，rssi内部关闭，系统恢复后，重新外部打开rssi */
 			case MSG_RSSI_READY_AND_SEND:
 			{
-				// zlog_info(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
+				info_zlog(zlog_handler," ---------------- EVENT : MSG_RSSI_READY_AND_SEND: msg_number = %d",getData->msg_number);
 
 				if(g_broker->system_ready == 1){
 					/* send rssi to node.js for display */
